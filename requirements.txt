@@ -1,4 +1,6 @@
 praw
 kafka-python
 textblob
+flask
+flask-cors
 python-dotenv
