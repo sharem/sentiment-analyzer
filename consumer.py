@@ -1,6 +1,8 @@
+"""Kafka consumer that reads Reddit comments and performs sentiment analysis."""
+
+import json
 from kafka import KafkaConsumer
 from textblob import TextBlob
-import json
 
 consumer = KafkaConsumer(
     "reddit-comments",
@@ -13,9 +15,9 @@ consumer = KafkaConsumer(
 for message in consumer:
     text = message.value['text']
     polarity = TextBlob(text).sentiment.polarity
-    sentiment = (
+    SENTIMENT = (
         "positive" if polarity > 0.1
         else "negative" if polarity < -0.1
         else "neutral"
     )
-    print(f"Text: {text[:100]}... | Sentiment: {sentiment} ({polarity:.2f})")
+    print(f"Text: {text[:100]}... | Sentiment: {SENTIMENT} ({polarity:.2f})")
