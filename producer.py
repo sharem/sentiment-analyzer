@@ -1,9 +1,9 @@
 """Kafka consumer that reads Reddit comments and performs sentiment analysis."""
 
-import praw
 import json
 import time
 import os
+import praw
 from dotenv import load_dotenv
 from kafka import KafkaProducer
 
