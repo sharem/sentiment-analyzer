@@ -48,7 +48,7 @@ def comments():
         limit = min(int(request.args.get('limit', 10)), 50)
         return jsonify(recent_comments[:limit])
     except (ValueError, TypeError) as e:
-        logger.exception("Error in comments endpoint")
+        logger.exception("Error in comments endpoint: %s", str(e)")
         return jsonify({"error": "Internal server error"}), 500
 
 @app.after_request
