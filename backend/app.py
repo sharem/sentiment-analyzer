@@ -69,7 +69,7 @@ def not_found(_error):
 @app.errorhandler(500)
 def internal_error(error):
     """Handle 500 Internal Server errors."""
-    logger.error("Internal error: %s", str(error))
+    logger.exception("Internal error: %s", str(error))
     return jsonify({"error": "Internal server error"}), 500
 
 # Application entry point
