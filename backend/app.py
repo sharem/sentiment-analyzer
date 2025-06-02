@@ -37,7 +37,7 @@ def sentiment():
     try:
         return jsonify(sentiment_counts)
     except (ValueError, KeyError) as e:
-        logger.error("Error in sentiment endpoint: %s", str(e))
+        logger.exception("Error in sentiment endpoint: %s", str(e))
         return jsonify({"error": "Internal server error"}), 500
 
 @app.route("/api/comments")
