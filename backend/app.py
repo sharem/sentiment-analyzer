@@ -36,8 +36,8 @@ def sentiment():
     """Endpoint to get sentiment analysis counts."""
     try:
         return jsonify(sentiment_counts)
-    except Exception as e:
-        logger.error(f"Error in sentiment endpoint: {e}")
+    except (ValueError, KeyError) as e:
+        logger.error("Error in sentiment endpoint: %s", str(e))
         return jsonify({"error": "Internal server error"}), 500
 
 @app.route("/api/comments")
@@ -47,8 +47,8 @@ def comments():
         # Add pagination to prevent data exposure
         limit = min(int(request.args.get('limit', 10)), 50)
         return jsonify(recent_comments[:limit])
-    except Exception as e:
-        logger.error(f"Error in comments endpoint: {e}")
+    except (ValueError, TypeError) as e:
+        logger.error("Error in comments endpoint: %s", str(e))
         return jsonify({"error": "Internal server error"}), 500
 
 @app.after_request
@@ -62,17 +62,19 @@ def security_headers(response):
     return response
 
 @app.errorhandler(404)
-def not_found(error):
+def not_found(_error):
+    """Handle 404 Not Found errors."""
     return jsonify({"error": "Not found"}), 404
 
 @app.errorhandler(500)
 def internal_error(error):
-    logger.error(f"Internal error: {error}")
+    """Handle 500 Internal Server errors."""
+    logger.error("Internal error: %s", str(error))
     return jsonify({"error": "Internal server error"}), 500
 
 # Application entry point
 if __name__ == "__main__":
     # More secure production settings
-    port = int(os.getenv('PORT', 5000))
+    port = int(os.getenv('PORT', '5000'))
     debug = os.getenv('FLASK_ENV') == 'development'
     app.run(debug=debug, port=port, host="0.0.0.0")
