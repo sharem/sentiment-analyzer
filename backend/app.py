@@ -5,6 +5,7 @@ import logging
 from flask import Flask, jsonify, request
 from flask_cors import CORS
 from dotenv import load_dotenv
+from dummy_data import sentiment_counts, recent_comments
 
 # Load environment variables
 load_dotenv()
@@ -19,16 +20,8 @@ app.config['DEBUG'] = os.getenv('FLASK_ENV') == 'development'
 allowed_origins = os.getenv("CORS_ORIGINS", "").split(",")
 CORS(app, origins=allowed_origins, supports_credentials=True)
 
-# Configure logging
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
-
-# [TODO: Remove] Dummy in-memory sentiment data
-sentiment_counts = {"positive": 10, "neutral": 5, "negative": 2}
-recent_comments = [
-    {"text": "I love this!", "sentiment": "positive"},
-    {"text": "Not great.", "sentiment": "negative"},
-]
 
 # Routes
 @app.route("/api/sentiment")
