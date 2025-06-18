@@ -1,8 +1,6 @@
 """Dummy data for sentiment analysis dashboard."""
 
 # [TODO: Remove] Dummy in-memory sentiment data
-sentiment_counts = {"positive": 45, "neutral": 23, "negative": 12}
-
 recent_comments = [
     {
         "text": "This is absolutely amazing! I can't believe how well this works.",

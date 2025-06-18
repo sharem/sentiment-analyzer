@@ -5,7 +5,7 @@ import logging
 from flask import Flask, jsonify, request
 from flask_cors import CORS
 from dotenv import load_dotenv
-from dummy_data import sentiment_counts, recent_comments
+from dummy_data import recent_comments
 
 # Load environment variables
 load_dotenv()
@@ -23,12 +23,21 @@ CORS(app, origins=allowed_origins, supports_credentials=True)
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
 
+def get_sentiment_counts():
+    """Calculate sentiment counts from recent comments."""
+    counts = {"positive": 0, "neutral": 0, "negative": 0}
+    for comment in recent_comments:
+        sentiment = comment.get("sentiment", "neutral")
+        if sentiment in counts:
+            counts[sentiment] += 1
+    return counts
+
 # Routes
 @app.route("/api/sentiment")
-def sentiment():
+def sentiment_data():
     """Endpoint to get sentiment analysis counts."""
     try:
-        return jsonify(sentiment_counts)
+        return jsonify(get_sentiment_counts())
     except (ValueError, KeyError) as e:
         logger.exception("Error in sentiment endpoint: %s", str(e))
         return jsonify({"error": "Internal server error"}), 500
