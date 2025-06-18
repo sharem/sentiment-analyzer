@@ -1,13 +1,31 @@
 ---
 import SentimentChart from '../components/SentimentChart.jsx'
+import RecentComments from '../components/RecentComments.jsx'
+import '../styles/global.css'
 ---
 
 <html>
   <head>
     <title>Sentiment Dashboard</title>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   </head>
   <body>
-    <h1>Real-time Sentiment</h1>
-    <SentimentChart client:load />
+    <div class="dashboard-container">
+      <header class="dashboard-header">
+        <h1 class="dashboard-title">Sentiment Dashboard</h1>
+        <p class="dashboard-subtitle">Real-time sentiment analysis of Reddit comments</p>
+      </header>
+      
+      <div class="dashboard-content">
+        <div class="chart-section">
+          <SentimentChart client:load />
+        </div>
+        
+        <div class="comments-section">
+          <RecentComments client:load />
+        </div>
+      </div>
+    </div>
   </body>
 </html>
