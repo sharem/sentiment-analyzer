@@ -8,56 +8,52 @@ export default function SentimentChart() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
 
-  const apiUrl = import.meta.env.VITE_API_URL 
-    ? `${import.meta.env.VITE_API_URL}/api/sentiment`
-    : 'http://localhost:5000/api/sentiment';
+  const apiUrl = '/api/sentiment';
+
+  const fetchSentimentData = async () => {
+    try {
+      setLoading(true);
+      setError(null);
+            
+      const response = await fetch(apiUrl);
+      
+      if (!response.ok) {
+        throw new Error(`HTTP error! status: ${response.status}`);
+      }
+      
+      const sentimentData = await response.json();
+      console.log('Received data:', sentimentData);
+      
+      // Validate data structure
+      if (!sentimentData || typeof sentimentData !== 'object') {
+        throw new Error('Invalid data format received');
+      }
+
+      const chartData = {
+        labels: ['Positive', 'Negative', 'Neutral'],
+        datasets: [{
+          data: [
+            sentimentData.positive || 0, 
+            sentimentData.negative || 0, 
+            sentimentData.neutral || 0
+          ],
+          backgroundColor: ['#10B981', '#EF4444', '#F59E0B'],
+          hoverBackgroundColor: ['#059669', '#DC2626', '#D97706'],
+          borderWidth: 2,
+          borderColor: '#ffffff'
+        }]
+      };
+      
+      setData(chartData);
+    } catch (error) {
+      console.error("Error fetching sentiment data:", error);
+      setError(error.message);
+    } finally {
+      setLoading(false);
+    }
+  };
 
   useEffect(() => {
-    const fetchSentimentData = async () => {
-      try {
-        setLoading(true);
-        setError(null);
-        
-        console.log('Fetching from URL:', apiUrl);
-        
-        const response = await fetch(apiUrl);
-        
-        if (!response.ok) {
-          throw new Error(`HTTP error! status: ${response.status}`);
-        }
-        
-        const sentimentData = await response.json();
-        console.log('Received data:', sentimentData);
-        
-        // Validate data structure
-        if (!sentimentData || typeof sentimentData !== 'object') {
-          throw new Error('Invalid data format received');
-        }
-
-        const chartData = {
-          labels: ['Positive', 'Negative', 'Neutral'],
-          datasets: [{
-            data: [
-              sentimentData.positive || 0, 
-              sentimentData.negative || 0, 
-              sentimentData.neutral || 0
-            ],
-            backgroundColor: ['#10B981', '#EF4444', '#F59E0B'],
-            hoverBackgroundColor: ['#059669', '#DC2626', '#D97706'],
-            borderWidth: 2,
-            borderColor: '#ffffff'
-          }]
-        };
-        
-        setData(chartData);
-      } catch (error) {
-        console.error("Error fetching sentiment data:", error);
-        setError(error.message);
-      } finally {
-        setLoading(false);
-      }
-    };
-
     fetchSentimentData();
   }, [apiUrl]);
   
@@ -91,39 +87,6 @@ export default function SentimentChart() {
     }
   };
 
-  const refreshData = async () => {
-    setLoading(true);
-    setError(null);
-    
-    try {
-      const response = await fetch(apiUrl);
-      if (!response.ok) {
-        throw new Error(`HTTP error! status: ${response.status}`);
-      }
-      
-      const sentimentData = await response.json();
-      const chartData = {
-        labels: ['Positive', 'Negative', 'Neutral'],
-        datasets: [{
-          data: [
-            sentimentData.positive || 0, 
-            sentimentData.negative || 0, 
-            sentimentData.neutral || 0
-          ],
-          backgroundColor: ['#10B981', '#EF4444', '#F59E0B'],
-          hoverBackgroundColor: ['#059669', '#DC2626', '#D97706'],
-          borderWidth: 2,
-          borderColor: '#ffffff'
-        }]
-      };
-      setData(chartData);
-    } catch (error) {
-      setError(error.message);
-    } finally {
-      setLoading(false);
-    }
-  };
-
   // Loading state
   if (loading) {
     return (
@@ -143,7 +106,7 @@ export default function SentimentChart() {
           Failed to load sentiment data: {error}
         </p>
         <button 
-          onClick={refreshData}
+          onClick={fetchSentimentData}
           className="sentiment-chart-button"
         >
           Retry
@@ -166,7 +129,7 @@ export default function SentimentChart() {
       <div className="sentiment-chart-header">
         <h3 className="sentiment-chart-title">Sentiment Analysis</h3>
         <button 
-          onClick={refreshData}
+          onClick={fetchSentimentData}
           disabled={loading}
           className="sentiment-chart-refresh-button"
         >
