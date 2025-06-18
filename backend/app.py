@@ -34,7 +34,7 @@ def get_sentiment_counts():
 
 # Routes
 @app.route("/api/sentiment")
-def sentiment():
+def sentiment_data():
     """Endpoint to get sentiment analysis counts."""
     try:
         return jsonify(get_sentiment_counts())
