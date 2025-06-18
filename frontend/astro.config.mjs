@@ -5,6 +5,7 @@ import { loadEnv } from "vite";
 
 
 function getConfig() {
+  const mode = process.env.NODE_ENV || 'development';
   const { BACKEND_URL : backendUrl } = loadEnv(mode, process.cwd(), '');
 
   if (!backendUrl) {
@@ -29,5 +30,4 @@ function getConfig() {
   };
 }
 
-const { command = 'serve', mode = process.env.NODE_ENV || 'development' } = process.env;
 export default defineConfig(getConfig());
