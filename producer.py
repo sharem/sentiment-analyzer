@@ -34,7 +34,7 @@ def main() -> None:
     # Initialize Reddit API client and Kafka producer
     reddit = create_reddit_client()
     producer = create_kafka_producer()
-    
+
     subreddit = reddit.subreddit("AskReddit")
 
     try:
