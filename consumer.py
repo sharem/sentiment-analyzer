@@ -3,7 +3,7 @@ Kafka consumer that reads Reddit comments and performs sentiment analysis.
 """
 
 import json
-from typing import Dict, Any
+from typing import Dict, Any, Tuple
 from kafka import KafkaConsumer
 from textblob import TextBlob
 
@@ -16,7 +16,7 @@ consumer = KafkaConsumer(
 )
 
 
-def analyze_sentiment(text: str) -> tuple[str, float]:
+def analyze_sentiment(text: str) -> Tuple[str, float]:
     """
     Analyze sentiment of text and return sentiment label and polarity score.
     """
