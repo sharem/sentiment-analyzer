@@ -1,9 +1,12 @@
 """Dummy data for sentiment analysis dashboard."""
 
+from typing import List, Dict, Any
+
 # [TODO: Remove] Dummy in-memory sentiment data
-recent_comments = [
+recent_comments: List[Dict[str, Any]] = [
     {
-        "text": "This is absolutely amazing! I can't believe how well this works.",
+        "text": "This is absolutely amazing! I can't believe how well this "
+                "works.",
         "sentiment": "positive"
     },
     {
