@@ -7,13 +7,19 @@ export default function SentimentChart() {
   const [data, setData] = useState(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
+  const [lastUpdated, setLastUpdated] = useState(null);
+  const [isAutoRefreshing, setIsAutoRefreshing] = useState(false);
 
   const apiUrl = '/api/sentiment';
 
-  const fetchSentimentData = async () => {
+  const fetchSentimentData = async (isManual = false) => {
     try {
-      setLoading(true);
-      setError(null);
+      if (isManual) {
+        setLoading(true);
+        setError(null);
+      } else {
+        setIsAutoRefreshing(true);
+      }
             
       const response = await fetch(apiUrl);
       
@@ -22,7 +28,7 @@ export default function SentimentChart() {
       }
       
       const sentimentData = await response.json();
-      console.log('Received data:', sentimentData);
+      console.log('Received sentiment data:', sentimentData);
       
       // Validate data structure
       if (!sentimentData || typeof sentimentData !== 'object') {
@@ -45,17 +51,27 @@ export default function SentimentChart() {
       };
       
       setData(chartData);
+      setLastUpdated(new Date());
     } catch (error) {
       console.error("Error fetching sentiment data:", error);
       setError(error.message);
     } finally {
       setLoading(false);
+      setIsAutoRefreshing(false);
     }
   };
 
   useEffect(() => {
-    fetchSentimentData();
-  }, [apiUrl]);
+    // Initial fetch
+    fetchSentimentData(true);
+    
+    // Set up automatic refresh every 10 seconds
+    const interval = setInterval(() => {
+      fetchSentimentData(false);
+    }, 10000);
+    
+    return () => clearInterval(interval);
+  }, []);
   
   const chartOptions = {
     responsive: true,
@@ -127,17 +143,32 @@ export default function SentimentChart() {
   return (
     <div className="sentiment-chart-container">
       <div className="sentiment-chart-header">
-        <h3 className="sentiment-chart-title">Sentiment Analysis</h3>
-        <button 
-          onClick={fetchSentimentData}
-          disabled={loading}
-          className="sentiment-chart-refresh-button"
-        >
-          {loading ? 'Refreshing...' : 'Refresh'}
-        </button>
+        <h3 className="sentiment-chart-title">
+          Sentiment Analysis
+          {isAutoRefreshing && (
+            <span className="auto-refresh-indicator"> 🔄</span>
+          )}
+        </h3>
+        <div className="sentiment-chart-controls">
+          {lastUpdated && (
+            <span className="last-updated">
+              Updated: {lastUpdated.toLocaleTimeString()}
+            </span>
+          )}
+          <button 
+            onClick={() => fetchSentimentData(true)}
+            disabled={loading}
+            className="sentiment-chart-refresh-button"
+          >
+            {loading ? 'Refreshing...' : 'Refresh Now'}
+          </button>
+        </div>
       </div>
       <div className="sentiment-chart-wrapper">
         <Pie data={data} options={chartOptions} />
+      </div>
+      <div className="auto-refresh-info">
+        <small>📡 Auto-refreshes every 10 seconds</small>
       </div>
     </div>
   );

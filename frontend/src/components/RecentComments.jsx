@@ -5,13 +5,19 @@ export default function RecentComments() {
   const [comments, setComments] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
+  const [lastUpdated, setLastUpdated] = useState(null);
+  const [isAutoRefreshing, setIsAutoRefreshing] = useState(false);
 
   const apiUrl = '/api/comments';
 
-  const fetchComments = async () => {
+  const fetchComments = async (isManual = false) => {
     try {
-      setLoading(true);
-      setError(null);
+      if (isManual) {
+        setLoading(true);
+        setError(null);
+      } else {
+        setIsAutoRefreshing(true);
+      }
       
       const response = await fetch(`${apiUrl}?limit=10`);
       
@@ -28,19 +34,24 @@ export default function RecentComments() {
       }
 
       setComments(commentsData);
+      setLastUpdated(new Date());
     } catch (error) {
       console.error("Error fetching comments:", error);
       setError(error.message);
     } finally {
       setLoading(false);
+      setIsAutoRefreshing(false);
     }
   };
 
   useEffect(() => {
-    fetchComments();
+    // Initial fetch
+    fetchComments(true);
     
-    // Set up automatic refresh every 30 seconds
-    const interval = setInterval(fetchComments, 30000);
+    // Set up automatic refresh every 10 seconds
+    const interval = setInterval(() => {
+      fetchComments(false);
+    }, 10000);
     
     return () => clearInterval(interval);
   }, []);
@@ -133,21 +144,38 @@ export default function RecentComments() {
   return (
     <div className="recent-comments-container">
       <div className="recent-comments-header">
-        <h3 className="recent-comments-title">Recent Comments</h3>
-        <button 
-          onClick={fetchComments}
-          disabled={loading}
-          className="recent-comments-refresh-button"
-        >
-          {loading ? 'Refreshing...' : 'Refresh'}
-        </button>
+        <h3 className="recent-comments-title">
+          Recent Comments
+          {isAutoRefreshing && (
+            <span className="auto-refresh-indicator"> 🔄</span>
+          )}
+        </h3>
+        <div className="recent-comments-controls">
+          {lastUpdated && (
+            <span className="last-updated">
+              Updated: {lastUpdated.toLocaleTimeString()}
+            </span>
+          )}
+          <button 
+            onClick={() => fetchComments(true)}
+            disabled={loading}
+            className="recent-comments-refresh-button"
+          >
+            {loading ? 'Refreshing...' : 'Refresh Now'}
+          </button>
+        </div>
       </div>
       
       <div className="recent-comments-list">
         {comments.map((comment, index) => (
-          <div key={index} className="comment-item">
+          <div key={`${comment.timestamp}-${index}`} className="comment-item">
             <div className="comment-content">
               <p className="comment-text">{comment.text}</p>
+              {comment.timestamp && (
+                <small className="comment-timestamp">
+                  {new Date(comment.timestamp).toLocaleTimeString()}
+                </small>
+              )}
             </div>
             <div className="comment-sentiment">
               <span 
@@ -157,15 +185,24 @@ export default function RecentComments() {
                   {getSentimentIcon(comment.sentiment)}
                 </span>
                 {comment.sentiment || 'Unknown'}
+                {comment.polarity !== undefined && (
+                  <span className="polarity-score">
+                    ({comment.polarity.toFixed(2)})
+                  </span>
+                )}
               </span>
             </div>
           </div>
         ))}
       </div>
       
-      {loading && (
+      <div className="auto-refresh-info">
+        <small>📡 Auto-refreshes every 10 seconds</small>
+      </div>
+      
+      {loading && comments.length > 0 && (
         <div className="recent-comments-updating">
-          <p>Updating...</p>
+          <p>🔄 Updating...</p>
         </div>
       )}
     </div>
