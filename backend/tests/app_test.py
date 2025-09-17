@@ -138,7 +138,19 @@ class TestSecurity:
 
     def test_cors_headers(self, client):
         response = client.get('/api/sentiment')
-        assert 'Access-Control-Allow-Origin' in response.headers
+        assert 'Access-Control-Allow-Credentials' in response.headers
+
+    def test_security_headers(self, client):
+        response = client.get('/api/sentiment')
+
+        # Check all the security headers that should always be present
+        assert response.headers['X-Content-Type-Options'] == 'nosniff'
+        assert response.headers['X-Frame-Options'] == 'DENY'
+        assert response.headers['X-XSS-Protection'] == '1; mode=block'
+        assert 'Strict-Transport-Security' in response.headers
+        assert response.headers['Content-Security-Policy'] == (
+            "default-src 'self'"
+        )
 
     def test_json_content_type(self, client):
         endpoints = ['/api/sentiment', '/api/comments', '/api/stats']
