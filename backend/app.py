@@ -1,166 +1,99 @@
-"""Data service for storing and retrieving sentiment analysis data."""
+"""Flask application to serve sentiment analysis data."""
 
-import threading
-import json
+import logging
 import os
-from collections import deque
-from typing import Dict, List, Optional
-from datetime import datetime
+
+from dotenv import load_dotenv
+from flask import Flask, jsonify, request
+from flask_cors import CORS
+
+from data_service import SentimentDataService
+
+# Load environment variables
+load_dotenv()
+
+app = Flask(__name__)
+
+# Security configurations
+app.config['SECRET_KEY'] = os.getenv('SECRET_KEY', os.urandom(24))
+app.config['DEBUG'] = os.getenv('FLASK_ENV') == 'development'
+
+# Configure CORS more securely
+allowed_origins = os.getenv("CORS_ORIGINS", "").split(",")
+CORS(app, origins=allowed_origins, supports_credentials=True)
+
+logging.basicConfig(level=logging.INFO)
+logger = logging.getLogger(__name__)
+
+# Initialize the sentiment data service
+sentiment_data_service = SentimentDataService(
+    max_comments=100,
+    storage_file=os.getenv('SENTIMENT_DATA_FILE', '/tmp/sentiment_data.json')
+)
 
 
-class SentimentDataService:
-    """Thread-safe service for storing and retrieving sentiment analysis."""
-
-    def __init__(self, max_comments: int = 100, storage_file: str = None):
-        """Initialize the data service.
-
-        Args:
-            max_comments: Maximum number of recent comments to store
-            storage_file: File path for persistent storage
-        """
-        self._lock = threading.RLock()
-        self._max_comments = max_comments
-        self._storage_file = storage_file or '/tmp/sentiment_data.json'
-        self._recent_comments = deque(maxlen=max_comments)
-        counts = {"positive": 0, "neutral": 0, "negative": 0}
-        self._sentiment_counts = counts
-
-        # Load existing data from file
-        self._load_data()
-
-    def _load_data(self) -> None:
-        """Load data from persistent storage."""
-        try:
-            if os.path.exists(self._storage_file):
-                with open(self._storage_file, 'r') as f:
-                    data = json.load(f)
-                    comments = data.get('comments', [])
-
-                    # Restore comments
-                    self._recent_comments.clear()
-                    for comment in comments[-self._max_comments:]:
-                        self._recent_comments.append(comment)
-
-                    # Recalculate sentiment counts
-                    self._recalculate_counts()
-        except (json.JSONDecodeError, FileNotFoundError, KeyError):
-            # If file doesn't exist or is corrupted, start fresh
-            pass
-
-    def _save_data(self) -> None:
-        """Save data to persistent storage."""
-        try:
-            data = {
-                'comments': list(self._recent_comments),
-                'last_updated': datetime.now().isoformat()
-            }
-            with open(self._storage_file, 'w') as f:
-                json.dump(data, f, indent=2)
-        except Exception as e:
-            print(f"Warning: Could not save data to {self._storage_file}: {e}")
-
-    def _recalculate_counts(self) -> None:
-        """Recalculate sentiment counts from current comments."""
-        counts = {"positive": 0, "neutral": 0, "negative": 0}
-        self._sentiment_counts = counts
-        for comment in self._recent_comments:
-            sentiment = comment.get("sentiment", "neutral")
-            if sentiment in self._sentiment_counts:
-                self._sentiment_counts[sentiment] += 1
-
-    def add_comment(self, text: str, sentiment: str,
-                    polarity: float = 0.0) -> None:
-        """Add a new comment with sentiment analysis.
-
-        Args:
-            text: The comment text
-            sentiment: Sentiment classification (positive, negative, neutral)
-            polarity: Sentiment polarity score
-        """
-        with self._lock:
-            # Create comment object
-            comment = {
-                "text": text,
-                "sentiment": sentiment,
-                "polarity": polarity,
-                "timestamp": datetime.now().isoformat()
-            }
-
-            # If at max capacity, remove sentiment count for removed comment
-            if len(self._recent_comments) == self._recent_comments.maxlen:
-                old_comment = self._recent_comments[0]
-                old_sentiment = old_comment.get("sentiment", "neutral")
-                if old_sentiment in self._sentiment_counts:
-                    count = self._sentiment_counts[old_sentiment]
-                    self._sentiment_counts[old_sentiment] = max(0, count - 1)
-
-            # Add new comment
-            self._recent_comments.append(comment)
-
-            # Update sentiment counts
-            if sentiment in self._sentiment_counts:
-                self._sentiment_counts[sentiment] += 1
-
-            # Save to persistent storage
-            self._save_data()
-
-    def get_recent_comments(self, limit: Optional[int] = None) -> List[Dict]:
-        """Get recent comments with sentiment analysis.
-
-        Args:
-            limit: Maximum number of comments to return
-
-        Returns:
-            List of comment dictionaries
-        """
-        with self._lock:
-            # Reload data to get latest from other processes
-            self._load_data()
-            comments = list(self._recent_comments)
-            if limit is not None:
-                comments = comments[-limit:]
-            return comments
-
-    def get_sentiment_counts(self) -> Dict[str, int]:
-        """Get current sentiment distribution counts.
-
-        Returns:
-            Dictionary with sentiment counts
-        """
-        with self._lock:
-            # Reload data to get latest from other processes
-            self._load_data()
-            return self._sentiment_counts.copy()
-
-    def clear_data(self) -> None:
-        """Clear all stored data."""
-        with self._lock:
-            self._recent_comments.clear()
-            counts = {"positive": 0, "neutral": 0, "negative": 0}
-            self._sentiment_counts = counts
-            # Save the cleared state to persistent storage
-            self._save_data()
-
-    def get_stats(self) -> Dict:
-        """Get overall statistics about the stored data.
-
-        Returns:
-            Dictionary with statistics
-        """
-        with self._lock:
-            total_comments = len(self._recent_comments)
-            newest_ts = (self._recent_comments[-1]["timestamp"]
-                         if self._recent_comments else None)
-            oldest_ts = (self._recent_comments[0]["timestamp"]
-                         if self._recent_comments else None)
-
-            return {
-                "total_comments": total_comments,
-                "sentiment_counts": self._sentiment_counts.copy(),
-                "oldest_comment_timestamp": oldest_ts,
-                "newest_comment_timestamp": newest_ts
-            }
+# Routes
+@app.route("/api/sentiment")
+def sentiment_data():
+    """Endpoint to get sentiment analysis counts."""
+    try:
+        return jsonify(sentiment_data_service.get_sentiment_counts())
+    except (ValueError, KeyError) as e:
+        logger.exception("Error in sentiment endpoint: %s", str(e))
+        return jsonify({"error": "Internal server error"}), 500
 
 
-# Global instance to be shared between consumer and backend
-sentiment_data_service = SentimentDataService()
+@app.route("/api/comments")
+def comments():
+    """Endpoint to get recent comments with sentiment."""
+    try:
+        # Add pagination to prevent data exposure
+        limit = min(int(request.args.get('limit', 10)), 50)
+        return jsonify(sentiment_data_service.get_recent_comments(limit))
+    except (ValueError, TypeError) as e:
+        logger.exception("Error in comments endpoint: %s", str(e))
+        return jsonify({"error": "Internal server error"}), 500
+
+
+@app.route("/api/stats")
+def stats():
+    """Endpoint to get overall statistics."""
+    try:
+        return jsonify(sentiment_data_service.get_stats())
+    except Exception as e:
+        logger.exception("Error in stats endpoint: %s", str(e))
+        return jsonify({"error": "Internal server error"}), 500
+
+
+@app.after_request
+def security_headers(response):
+    """Add security headers to all responses."""
+    response.headers['X-Content-Type-Options'] = 'nosniff'
+    response.headers['X-Frame-Options'] = 'DENY'
+    response.headers['X-XSS-Protection'] = '1; mode=block'
+    response.headers['Strict-Transport-Security'] = (
+        'max-age=31536000; includeSubDomains'
+    )
+    response.headers['Content-Security-Policy'] = "default-src 'self'"
+    return response
+
+
+@app.errorhandler(404)
+def not_found(_error):
+    """Handle 404 Not Found errors."""
+    return jsonify({"error": "Not found"}), 404
+
+
+@app.errorhandler(500)
+def internal_error(error):
+    """Handle 500 Internal Server errors."""
+    logger.exception("Internal error: %s", str(error))
+    return jsonify({"error": "Internal server error"}), 500
+
+
+# Application entry point
+if __name__ == "__main__":
+    # More secure production settings
+    port = int(os.getenv('PORT', '5000'))
+    debug = os.getenv('FLASK_ENV') == 'development'
+    app.run(debug=debug, port=port, host="0.0.0.0")
