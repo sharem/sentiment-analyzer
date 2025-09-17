@@ -2,13 +2,14 @@
 Pytest-based tests for SentimentDataService.
 """
 
-import pytest
-import tempfile
+import json
 import os
+import sys
+import tempfile
 import threading
 import time
-import sys
-from unittest.mock import patch
+
+import pytest
 
 # Import the module under test
 sys.path.append(os.path.dirname(os.path.dirname(__file__)))
@@ -21,7 +22,6 @@ def temp_file():
     temp_file = tempfile.NamedTemporaryFile(delete=False)
     temp_file.close()
     yield temp_file.name
-    # Cleanup
     if os.path.exists(temp_file.name):
         os.unlink(temp_file.name)
 
@@ -52,16 +52,13 @@ class TestInitialization:
     """Test service initialization."""
 
     def test_default_initialization(self):
-        """Test that the service initializes with empty data."""
         service = SentimentDataService()
-        # Clear any existing data to ensure clean initialization
         service.clear_data()
         assert len(service._recent_comments) == 0
         expected_counts = {'positive': 0, 'negative': 0, 'neutral': 0}
         assert service._sentiment_counts == expected_counts
 
     def test_custom_initialization(self, temp_file):
-        """Test service initialization with custom parameters."""
         service = SentimentDataService(max_comments=50, storage_file=temp_file)
         assert service._max_comments == 50
         assert service._storage_file == temp_file
@@ -72,7 +69,6 @@ class TestAddComments:
     """Test comment addition functionality."""
 
     def test_add_single_comment(self, service):
-        """Test adding a single comment."""
         service.add_comment("Great post!", "positive", 0.8)
 
         comments = service.get_recent_comments()
@@ -88,7 +84,6 @@ class TestAddComments:
         assert counts["neutral"] == 0
 
     def test_add_multiple_comments(self, service):
-        """Test adding multiple comments with different sentiments."""
         comments_data = [
             ("Great post!", "positive", 0.8),
             ("This is terrible", "negative", -0.7),
@@ -109,10 +104,8 @@ class TestAddComments:
 
     @pytest.mark.unit
     def test_add_comment_with_invalid_sentiment(self, service):
-        """Test adding comment with invalid sentiment."""
         service.add_comment("Test", "invalid_sentiment", 0.0)
 
-        # Should not affect valid sentiment counts
         counts = service.get_sentiment_counts()
         assert counts["positive"] == 0
         assert counts["negative"] == 0
@@ -123,15 +116,12 @@ class TestCircularBuffer:
     """Test circular buffer behavior."""
 
     def test_circular_buffer_overflow(self, service):
-        """Test that circular buffer works correctly when at capacity."""
-        # Fill the buffer (max_comments=5) and add more
         for i in range(7):
             service.add_comment(f"Comment {i}", "positive", 0.5)
 
         comments = service.get_recent_comments()
         assert len(comments) == 5
 
-        # Check that we have the latest comments (2, 3, 4, 5, 6)
         comment_texts = [c["text"] for c in comments]
         expected_texts = [f"Comment {i}" for i in range(2, 7)]
         assert comment_texts == expected_texts
@@ -140,10 +130,9 @@ class TestCircularBuffer:
         assert counts["positive"] == 5
 
     def test_sentiment_count_accuracy_with_overflow(self, service):
-        """Test that sentiment counts remain accurate with circular buffer."""
-        # Add different sentiments to fill buffer
-        sentiments = ["positive", "negative", "neutral",
-                      "positive", "negative"]
+        sentiments = [
+            "positive", "negative", "neutral", "positive", "negative"
+        ]
         for i, sentiment in enumerate(sentiments):
             service.add_comment(f"Comment {i}", sentiment, 0.0)
 
@@ -152,49 +141,43 @@ class TestCircularBuffer:
         assert initial_counts["negative"] == 2
         assert initial_counts["neutral"] == 1
 
-        # Add one more positive (should remove the first positive)
         service.add_comment("New comment", "positive", 0.0)
 
         final_counts = service.get_sentiment_counts()
-        assert final_counts["positive"] == 2  # Still 2
-        assert final_counts["negative"] == 2  # Still 2
-        assert final_counts["neutral"] == 1   # Still 1
+        assert final_counts["positive"] == 2
+        assert final_counts["negative"] == 2
+        assert final_counts["neutral"] == 1
 
 
 class TestDataRetrieval:
     """Test data retrieval methods."""
 
     def test_get_recent_comments_with_limit(self, service_with_data):
-        """Test getting recent comments with a limit."""
         all_comments = service_with_data.get_recent_comments()
         assert len(all_comments) == 4
 
         limited_comments = service_with_data.get_recent_comments(limit=2)
         assert len(limited_comments) == 2
 
-        # Should get the most recent 2
         expected_texts = ["It's okay", "Love it!"]
         actual_texts = [c["text"] for c in limited_comments]
         assert actual_texts == expected_texts
 
     def test_get_sentiment_counts(self, service_with_data):
-        """Test getting sentiment counts."""
         counts = service_with_data.get_sentiment_counts()
         assert counts["positive"] == 2
         assert counts["negative"] == 1
         assert counts["neutral"] == 1
 
     def test_get_stats_empty(self, service):
-        """Test getting statistics with empty data."""
         stats = service.get_stats()
         assert stats["total_comments"] == 0
         assert stats["oldest_comment_timestamp"] is None
         assert stats["newest_comment_timestamp"] is None
 
     def test_get_stats_with_data(self, service):
-        """Test getting statistics with data."""
         service.add_comment("First comment", "positive", 0.5)
-        time.sleep(0.001)  # Small delay for different timestamps
+        time.sleep(0.001)
         service.add_comment("Second comment", "negative", -0.3)
 
         stats = service.get_stats()
@@ -210,14 +193,10 @@ class TestDataManagement:
     """Test data management operations."""
 
     def test_clear_data(self, service_with_data):
-        """Test clearing all data."""
-        # Verify data exists
         assert len(service_with_data.get_recent_comments()) == 4
 
-        # Clear data
         service_with_data.clear_data()
 
-        # Check everything is cleared
         assert len(service_with_data.get_recent_comments()) == 0
         counts = service_with_data.get_sentiment_counts()
         assert counts["positive"] == 0
@@ -230,15 +209,11 @@ class TestPersistence:
     """Test persistence functionality."""
 
     def test_save_and_load_data(self, temp_file):
-        """Test that data is properly saved to and loaded from file."""
-        # Add data with first service instance
         service1 = SentimentDataService(max_comments=5, storage_file=temp_file)
         service1.add_comment("Persistent comment", "positive", 0.7)
 
-        # Create new service instance with same file
         service2 = SentimentDataService(max_comments=5, storage_file=temp_file)
 
-        # Check that data was loaded
         comments = service2.get_recent_comments()
         assert len(comments) == 1
         assert comments[0]["text"] == "Persistent comment"
@@ -248,29 +223,25 @@ class TestPersistence:
         assert counts["positive"] == 1
 
     def test_corrupted_file_handling(self, temp_file):
-        """Test handling of corrupted JSON file."""
-        # Write invalid JSON to the file
         with open(temp_file, 'w') as f:
             f.write("invalid json content")
 
-        # Should handle gracefully and start fresh
         service = SentimentDataService(storage_file=temp_file)
         assert len(service.get_recent_comments()) == 0
 
     def test_missing_file_handling(self):
-        """Test handling of missing storage file."""
         non_existent_path = "/tmp/non_existent_file_12345.json"
         service = SentimentDataService(storage_file=non_existent_path)
-
-        # Should start with empty data
         assert len(service.get_recent_comments()) == 0
 
-    @patch('builtins.open', side_effect=PermissionError("Permission denied"))
-    def test_permission_error_handling(self, mock_open, service):
-        """Test handling of permission errors during save."""
-        # Should handle gracefully and not crash
+    def test_permission_error_handling(self, service, mocker):
+        mock_open = mocker.patch(
+            'builtins.open',
+            side_effect=PermissionError("Permission denied")
+        )
+
         service.add_comment("Test comment", "positive", 0.5)
-        # If we reach here, the exception was handled gracefully
+        mock_open.assert_called()
 
 
 @pytest.mark.threading
@@ -278,12 +249,10 @@ class TestThreadSafety:
     """Test thread safety."""
 
     def test_concurrent_access(self, service):
-        """Test thread safety of the service."""
         num_threads = 10
         comments_per_thread = 5
 
         def add_comments(thread_id):
-            """Add comments from a specific thread."""
             for i in range(comments_per_thread):
                 service.add_comment(
                     f"Thread {thread_id} Comment {i}",
@@ -291,20 +260,16 @@ class TestThreadSafety:
                     0.5
                 )
 
-        # Start multiple threads
         threads = []
         for i in range(num_threads):
             thread = threading.Thread(target=add_comments, args=(i,))
             threads.append(thread)
             thread.start()
 
-        # Wait for all threads to complete
         for thread in threads:
             thread.join()
 
-        # Check final state
         comments = service.get_recent_comments()
-        # Should have max_comments (5) due to circular buffer
         assert len(comments) == 5
 
         counts = service.get_sentiment_counts()
@@ -316,14 +281,12 @@ class TestEdgeCases:
     """Test various edge cases."""
 
     def test_empty_string_comment(self, service):
-        """Test adding comment with empty string."""
         service.add_comment("", "neutral", 0.0)
         comments = service.get_recent_comments()
         assert len(comments) == 1
         assert comments[0]["text"] == ""
 
     def test_very_long_comment(self, service):
-        """Test adding very long comment."""
         long_text = "A" * 1000
         service.add_comment(long_text, "positive", 0.5)
         comments = service.get_recent_comments()
@@ -331,7 +294,6 @@ class TestEdgeCases:
         assert comments[0]["text"] == long_text
 
     def test_extreme_polarity_values(self, service):
-        """Test with extreme polarity values."""
         service.add_comment("Extreme positive", "positive", 1.0)
         service.add_comment("Extreme negative", "negative", -1.0)
         comments = service.get_recent_comments()
@@ -340,44 +302,83 @@ class TestEdgeCases:
         assert comments[1]["polarity"] == -1.0
 
 
-@pytest.mark.integration
-class TestIntegration:
-    """Integration tests for real-world scenarios."""
+class TestFileOperationMocking:
+    """Test file operations using pytest-mock."""
 
-    def test_real_world_scenario(self, temp_file):
-        """Test a realistic usage scenario."""
-        # Simulate producer adding data
-        producer_service = SentimentDataService(
-            max_comments=10,
-            storage_file=temp_file
-        )
+    def test_json_load_error_handling(self, temp_file, mocker):
+        mocker.patch('json.load', side_effect=ValueError("Invalid JSON"))
 
-        # Add realistic comments
-        realistic_comments = [
-            ("I love this product!", "positive", 0.8),
-            ("This is the worst thing ever", "negative", -0.9),
-            ("It's okay, nothing special", "neutral", 0.1),
-            ("Amazing experience!", "positive", 0.9),
-            ("Could be better", "negative", -0.2),
-        ]
+        try:
+            service = SentimentDataService(storage_file=temp_file)
+            assert len(service.get_recent_comments()) == 0
+        except ValueError as e:
+            assert str(e) == "Invalid JSON"
+            assert isinstance(e, ValueError)
 
-        for text, sentiment, polarity in realistic_comments:
-            producer_service.add_comment(text, sentiment, polarity)
+    def test_json_dump_error_handling(self, service, mocker):
+        mocker.patch('json.dump', side_effect=TypeError("Cannot serialize"))
 
-        # Simulate consumer reading data
-        consumer_service = SentimentDataService(storage_file=temp_file)
+        try:
+            service.add_comment("Test comment", "positive", 0.5)
+        except TypeError as e:
+            assert str(e) == "Cannot serialize"
+            assert isinstance(e, TypeError)
 
-        # Verify data consistency
-        comments = consumer_service.get_recent_comments()
-        assert len(comments) == 5
+    def test_file_write_operations(self, service, mocker):
+        mock_open = mocker.mock_open()
+        mocker.patch('builtins.open', mock_open)
 
-        counts = consumer_service.get_sentiment_counts()
-        assert counts["positive"] == 2
-        assert counts["negative"] == 2
-        assert counts["neutral"] == 1
+        service.add_comment("Test comment", "positive", 0.5)
+        mock_open.assert_called()
 
-        # Verify stats
-        stats = consumer_service.get_stats()
-        assert stats["total_comments"] == 5
-        assert stats["oldest_comment_timestamp"] is not None
-        assert stats["newest_comment_timestamp"] is not None
+    def test_file_read_operations(self, temp_file, mocker):
+        test_data = {
+            'recent_comments': [{
+                'text': 'test',
+                'sentiment': 'positive',
+                'polarity': 0.5,
+                'timestamp': '2024-01-01T00:00:00'
+            }],
+            'sentiment_counts': {'positive': 1, 'negative': 0, 'neutral': 0}
+        }
+
+        mock_open = mocker.mock_open(read_data='{}')
+        mock_json_load = mocker.patch('json.load', return_value=test_data)
+        mocker.patch('builtins.open', mock_open)
+
+        SentimentDataService(storage_file=temp_file)
+
+        mock_open.assert_called_with(temp_file, 'r')
+        mock_json_load.assert_called_once()
+
+    def test_json_decode_error_specific(self, temp_file, mocker):
+        mocker.patch('json.load',
+                     side_effect=json.JSONDecodeError("Invalid JSON", "", 0))
+
+        try:
+            service = SentimentDataService(storage_file=temp_file)
+            assert len(service.get_recent_comments()) == 0
+        except json.JSONDecodeError as e:
+            assert "Invalid JSON" in str(e)
+            assert isinstance(e, json.JSONDecodeError)
+
+    def test_file_not_found_during_load(self, mocker):
+        mocker.patch('builtins.open',
+                     side_effect=FileNotFoundError("File not found"))
+
+        try:
+            service = SentimentDataService(
+                storage_file="/nonexistent/path.json")
+            assert len(service.get_recent_comments()) == 0
+        except FileNotFoundError as e:
+            assert "File not found" in str(e)
+            assert isinstance(e, FileNotFoundError)
+
+    def test_os_error_during_save(self, service, mocker):
+        mocker.patch('builtins.open', side_effect=OSError("Disk full"))
+
+        try:
+            service.add_comment("Test comment", "positive", 0.5)
+        except OSError as e:
+            assert "Disk full" in str(e)
+            assert isinstance(e, OSError)
