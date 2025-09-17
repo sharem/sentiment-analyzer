@@ -3,6 +3,7 @@
 import threading
 import json
 import os
+import tempfile
 from collections import deque
 from typing import Dict, List, Optional
 from datetime import datetime
@@ -20,10 +21,16 @@ class SentimentDataService:
         """
         self._lock = threading.RLock()
         self._max_comments = max_comments
-        self._storage_file = storage_file or '/tmp/sentiment_data.json'
+
+        # Use provided storage_file or create a temp one
+        if storage_file:
+            self._storage_file = storage_file
+        else:
+            temp_dir = tempfile.mkdtemp(prefix='sentiment_')
+            self._storage_file = os.path.join(temp_dir, 'sentiment_data.json')
+
         self._recent_comments = deque(maxlen=max_comments)
-        counts = {"positive": 0, "neutral": 0, "negative": 0}
-        self._sentiment_counts = counts
+        self._sentiment_counts = {"positive": 0, "neutral": 0, "negative": 0}
 
         # Load existing data from file
         self._load_data()

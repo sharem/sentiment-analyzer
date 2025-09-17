@@ -96,4 +96,6 @@ if __name__ == "__main__":
     # More secure production settings
     port = int(os.getenv('PORT', '5000'))
     debug = os.getenv('FLASK_ENV') == 'development'
-    app.run(debug=debug, port=port, host="0.0.0.0")
+    # Add environment-based host binding
+    host = "127.0.0.1" if debug else "0.0.0.0"
+    app.run(debug=debug, port=port, host=host)
