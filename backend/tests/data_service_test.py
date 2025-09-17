@@ -1,8 +1,5 @@
 """
 Pytest-based tests for SentimentDataService.
-
-This module uses pytest for cleaner syntax, better fixtures,
-and more powerful testing capabilities.
 """
 
 import pytest
