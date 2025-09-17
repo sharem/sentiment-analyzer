@@ -47,10 +47,10 @@ start_python_service() {
     
     if [ "$script_name" = "app.py" ]; then
         cd backend
-        nohup /home/sharem/.venvs/sentiment-analyzer/bin/python $script_name > "../$log_file" 2>&1 &
+        nohup python $script_name > "../$log_file" 2>&1 &
         cd ..
     else
-        nohup /home/sharem/.venvs/sentiment-analyzer/bin/python $script_name > "$log_file" 2>&1 &
+        nohup python $script_name > "$log_file" 2>&1 &
     fi
     
     echo "   $service_name started with PID $! (logs: $log_file)"
