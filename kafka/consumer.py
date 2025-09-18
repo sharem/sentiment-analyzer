@@ -10,7 +10,13 @@ from textblob import TextBlob
 sys.path.append(os.path.join(os.path.dirname(__file__), '..', 'backend'))
 
 # Import after path setup
-from data_service import sentiment_data_service  # noqa: E402
+from data_service import SentimentDataService  # noqa: E402
+
+storage_file = os.getenv('SENTIMENT_DATA_FILE', '/tmp/sentiment_data.json')
+sentiment_data_service = SentimentDataService(
+    max_comments=100,
+    storage_file=storage_file
+)
 
 consumer = KafkaConsumer(
     "reddit-comments",
