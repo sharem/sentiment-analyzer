@@ -33,7 +33,13 @@ export default function RecentComments() {
         throw new Error('Invalid data format received');
       }
 
-      setComments(commentsData);
+      // Add unique IDs to comments if they don't exist
+      const commentsWithIds = commentsData.map((comment, index) => ({
+        ...comment,
+        id: comment.id || `${comment.timestamp || Date.now()}-${index}-${Math.random().toString(36).substr(2, 9)}`
+      }));
+
+      setComments(commentsWithIds);
       setLastUpdated(new Date());
     } catch (error) {
       console.error("Error fetching comments:", error);
@@ -105,7 +111,7 @@ export default function RecentComments() {
         <div className="recent-comments-header">
           <h3 className="recent-comments-title">Recent Comments</h3>
           <button 
-            onClick={fetchComments}
+            onClick={() => fetchComments(true)}
             className="recent-comments-refresh-button"
           >
             Retry
@@ -127,7 +133,7 @@ export default function RecentComments() {
         <div className="recent-comments-header">
           <h3 className="recent-comments-title">Recent Comments</h3>
           <button 
-            onClick={fetchComments}
+            onClick={() => fetchComments(true)}
             disabled={loading}
             className="recent-comments-refresh-button"
           >
@@ -167,8 +173,8 @@ export default function RecentComments() {
       </div>
       
       <div className="recent-comments-list">
-        {comments.map((comment, index) => (
-          <div key={`${comment.timestamp}-${index}`} className="comment-item">
+        {comments.map((comment) => (
+          <div key={comment.id} className="comment-item">
             <div className="comment-content">
               <p className="comment-text">{comment.text}</p>
               {comment.timestamp && (
