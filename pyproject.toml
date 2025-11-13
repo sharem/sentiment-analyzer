@@ -65,4 +65,4 @@ markers = [
 ]
 
 # Minimum version
-minversion = "6.0"
+minversion = "8.0"
