@@ -52,7 +52,7 @@ sentiment-analyzer/
 
 1. **Clone and setup environment:**
    ```bash
-   git clone <repository-url>
+   git clone https://github.com/your-username/sentiment-analyzer.git
    cd sentiment-analyzer
    python -m venv sentiment-analyzer
    source sentiment-analyzer/bin/activate  # On Windows: sentiment-analyzer\Scripts\activate
