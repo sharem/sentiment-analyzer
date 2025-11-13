@@ -1,10 +1,14 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useState, useCallback, useMemo } from 'react';
 import { Pie } from 'react-chartjs-2';
 import Chart from 'chart.js/auto';
 import './SentimentChart.css';
 
 export default function SentimentChart() {
-  const [data, setData] = useState(null);
+  const [sentimentCounts, setSentimentCounts] = useState({
+    positive: 0,
+    negative: 0,
+    neutral: 0
+  });
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
   const [lastUpdated, setLastUpdated] = useState(null);
@@ -12,7 +16,7 @@ export default function SentimentChart() {
 
   const apiUrl = '/api/sentiment';
 
-  const fetchSentimentData = async (isManual = false) => {
+  const fetchSentimentData = useCallback(async (isManual = false) => {
     try {
       if (isManual) {
         setLoading(true);
@@ -35,22 +39,13 @@ export default function SentimentChart() {
         throw new Error('Invalid data format received');
       }
 
-      const chartData = {
-        labels: ['Positive', 'Negative', 'Neutral'],
-        datasets: [{
-          data: [
-            sentimentData.positive || 0, 
-            sentimentData.negative || 0, 
-            sentimentData.neutral || 0
-          ],
-          backgroundColor: ['#10B981', '#EF4444', '#F59E0B'],
-          hoverBackgroundColor: ['#059669', '#DC2626', '#D97706'],
-          borderWidth: 2,
-          borderColor: '#ffffff'
-        }]
-      };
+      // Update only the counts, not the entire data structure
+      setSentimentCounts({
+        positive: sentimentData.positive || 0,
+        negative: sentimentData.negative || 0,
+        neutral: sentimentData.neutral || 0
+      });
       
-      setData(chartData);
       setLastUpdated(new Date());
     } catch (error) {
       console.error("Error fetching sentiment data:", error);
@@ -59,7 +54,7 @@ export default function SentimentChart() {
       setLoading(false);
       setIsAutoRefreshing(false);
     }
-  };
+  }, [apiUrl]);
 
   useEffect(() => {
     // Initial fetch
@@ -71,9 +66,21 @@ export default function SentimentChart() {
     }, 10000);
     
     return () => clearInterval(interval);
-  }, []);
+  }, [fetchSentimentData]);
+
+  // Memoize the chart data structure
+  const chartData = useMemo(() => ({
+    labels: ['Positive', 'Negative', 'Neutral'],
+    datasets: [{
+      data: [sentimentCounts.positive, sentimentCounts.negative, sentimentCounts.neutral],
+      backgroundColor: ['#10B981', '#EF4444', '#F59E0B'],
+      hoverBackgroundColor: ['#059669', '#DC2626', '#D97706'],
+      borderWidth: 2,
+      borderColor: '#ffffff'
+    }]
+  }), [sentimentCounts.positive, sentimentCounts.negative, sentimentCounts.neutral]);
   
-  const chartOptions = {
+  const chartOptions = useMemo(() => ({
     responsive: true,
     maintainAspectRatio: false,
     plugins: {
@@ -99,12 +106,18 @@ export default function SentimentChart() {
     },
     animation: {
       animateRotate: true,
-      animateScale: true
+      animateScale: false,
+      duration: 500,
+      easing: 'easeInOutQuart'
     }
-  };
+  }), []);
 
-  // Loading state
-  if (loading) {
+  const hasNoData = sentimentCounts.positive === 0 && 
+                    sentimentCounts.negative === 0 && 
+                    sentimentCounts.neutral === 0;
+
+  // Loading state (only on initial load)
+  if (loading && hasNoData) {
     return (
       <div className="sentiment-chart-container sentiment-chart-loading">
         <div className="loading-spinner">
@@ -122,7 +135,7 @@ export default function SentimentChart() {
           Failed to load sentiment data: {error}
         </p>
         <button 
-          onClick={fetchSentimentData}
+          onClick={() => fetchSentimentData(true)}
           className="sentiment-chart-button"
         >
           Retry
@@ -132,7 +145,7 @@ export default function SentimentChart() {
   }
 
   // No data state
-  if (!data || data.datasets[0].data.every(value => value === 0)) {
+  if (hasNoData) {
     return (
       <div className="sentiment-chart-container sentiment-chart-no-data">
         <p>No sentiment data available</p>
@@ -157,7 +170,7 @@ export default function SentimentChart() {
           )}
           <button 
             onClick={() => fetchSentimentData(true)}
-            disabled={loading}
+            disabled={loading || isAutoRefreshing}
             className="sentiment-chart-refresh-button"
           >
             {loading ? 'Refreshing...' : 'Refresh Now'}
@@ -165,7 +178,7 @@ export default function SentimentChart() {
         </div>
       </div>
       <div className="sentiment-chart-wrapper">
-        <Pie data={data} options={chartOptions} />
+        <Pie data={chartData} options={chartOptions} />
       </div>
       <div className="auto-refresh-info">
         <small>📡 Auto-refreshes every 10 seconds</small>
