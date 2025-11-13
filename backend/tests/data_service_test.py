@@ -4,7 +4,6 @@ Pytest-based tests for SentimentDataService.
 
 import os
 import sys
-import tempfile
 import threading
 import time
 
@@ -16,13 +15,11 @@ from data_service import SentimentDataService  # noqa: E402
 
 
 @pytest.fixture
-def temp_file():
-    """Create a temporary file for testing."""
-    temp_file = tempfile.NamedTemporaryFile(delete=False)
-    temp_file.close()
-    yield temp_file.name
-    if os.path.exists(temp_file.name):
-        os.unlink(temp_file.name)
+def temp_file(tmp_path):
+    """Create a temporary file for testing using pytest's tmp_path."""
+    temp_file_path = tmp_path / "test_data.json"
+    yield str(temp_file_path)
+    # Cleanup is handled automatically by pytest's tmp_path
 
 
 @pytest.fixture
