@@ -26,9 +26,28 @@ class SentimentDataService:
         self._storage_file = storage_file or '/tmp/sentiment_data.json'
         self._recent_comments = deque(maxlen=max_comments)
         self._sentiment_counts = {"positive": 0, "neutral": 0, "negative": 0}
+        self._last_file_mtime = None
 
         # Load existing data from file
         self._load_data()
+
+    def _get_file_mtime(self) -> Optional[float]:
+        """Get the modification time of the storage file."""
+        try:
+            if os.path.exists(self._storage_file):
+                return os.path.getmtime(self._storage_file)
+        except OSError:
+            pass
+        return None
+
+    def _needs_reload(self) -> bool:
+        """Check if the file has been modified since last load."""
+        current_mtime = self._get_file_mtime()
+        if current_mtime is None:
+            return False
+        if self._last_file_mtime is None:
+            return True
+        return current_mtime > self._last_file_mtime
 
     def _load_data(self) -> None:
         """Load data from persistent storage."""
@@ -45,6 +64,9 @@ class SentimentDataService:
 
                     # Recalculate sentiment counts
                     self._recalculate_counts()
+
+                # Update the last known modification time
+                self._last_file_mtime = self._get_file_mtime()
         except (json.JSONDecodeError, FileNotFoundError, KeyError) as e:
             # Start with empty data if file is corrupted or doesn't exist
             logger.warning(
@@ -60,6 +82,9 @@ class SentimentDataService:
             }
             with open(self._storage_file, 'w') as f:
                 json.dump(data, f, indent=2)
+
+            # Update the modification time after saving
+            self._last_file_mtime = self._get_file_mtime()
         except Exception as e:
             # Continue operation even if persistence fails
             logger.error(f"Failed to save data to {self._storage_file}: {e}")
@@ -104,7 +129,10 @@ class SentimentDataService:
     def get_recent_comments(self, limit: Optional[int] = None) -> List[Dict]:
         """Get recent comments with sentiment analysis."""
         with self._lock:
-            self._load_data()
+            # Only reload if file has been modified by another process
+            if self._needs_reload():
+                self._load_data()
+
             comments = list(self._recent_comments)
             if limit is not None:
                 comments = comments[-limit:]
@@ -113,7 +141,10 @@ class SentimentDataService:
     def get_sentiment_counts(self) -> Dict[str, int]:
         """Get current sentiment distribution counts."""
         with self._lock:
-            self._load_data()
+            # Only reload if file has been modified by another process
+            if self._needs_reload():
+                self._load_data()
+
             return self._sentiment_counts.copy()
 
     def clear_data(self) -> None:
@@ -128,6 +159,10 @@ class SentimentDataService:
     def get_stats(self) -> Dict:
         """Get overall statistics about the stored data."""
         with self._lock:
+            # Only reload if file has been modified by another process
+            if self._needs_reload():
+                self._load_data()
+
             total_comments = len(self._recent_comments)
             newest_ts = (
                 self._recent_comments[-1]["timestamp"]
