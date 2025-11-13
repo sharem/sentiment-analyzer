@@ -89,11 +89,17 @@ sleep 3
 # 5. Start Frontend (if not already running)
 echo "🌐 Starting Frontend..."
 cd frontend
-if ! lsof -Pi :4321 -sTCP:LISTEN -t >/dev/null; then
-    nohup npm run dev > ../logs/frontend.log 2>&1 &
-    echo "   Frontend started with PID $! (logs: logs/frontend.log)"
-else
+if lsof -Pi :4321 -sTCP:LISTEN -t >/dev/null; then
     echo "   Frontend is already running on port 4321"
+else
+    nohup npm run dev > ../logs/frontend.log 2>&1 &
+    FRONTEND_PID=$!
+    sleep 2
+    if lsof -Pi :4321 -sTCP:LISTEN -t >/dev/null; then
+        echo "   Frontend started with PID $FRONTEND_PID (logs: logs/frontend.log)"
+    else
+        echo "⚠️  Failed to start Frontend. Port 4321 may already be in use or there was an error. Check logs/frontend.log."
+    fi
 fi
 cd ..
 
