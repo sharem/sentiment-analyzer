@@ -60,10 +60,34 @@ start_python_service() {
 
 # 1. Start Docker services (Kafka + Zookeeper)
 echo "🐳 Starting Docker services..."
-sudo service docker start 2>/dev/null || true
+
+# Check if Docker is running, start if needed
+if ! docker info > /dev/null 2>&1; then
+    echo "   Starting Docker service..."
+    sudo service docker start
+    sleep 3
+    
+    # Verify Docker started successfully
+    if ! docker info > /dev/null 2>&1; then
+        echo "❌ Failed to start Docker service"
+        exit 1
+    fi
+fi
+
 cd kafka
-docker-compose down --volumes --remove-orphans > /dev/null 2>&1 || true
+
+# Clean up existing containers (allow failure only if containers don't exist)
+if docker-compose ps -q 2>/dev/null | grep -q .; then
+    echo "   Stopping existing containers..."
+    docker-compose down --volumes --remove-orphans
+else
+    echo "   No existing containers to stop"
+fi
+
+# Start Docker Compose (this should fail on real errors)
+echo "   Starting Kafka and Zookeeper..."
 docker-compose up -d
+
 cd ..
 
 # Wait for Kafka to be ready
