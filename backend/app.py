@@ -93,9 +93,14 @@ def internal_error(error):
 
 # Application entry point
 if __name__ == "__main__":
-    # More secure production settings
+    # Configuration from environment variables with sensible defaults
     port = int(os.getenv('PORT', '5000'))
     debug = os.getenv('FLASK_ENV') == 'development'
-    # Add environment-based host binding
-    host = "127.0.0.1" if debug else "0.0.0.0"
+
+    # Use environment variable for host configuration
+    # Default to localhost in development, 0.0.0.0 in production
+    default_host = "127.0.0.1" if debug else "0.0.0.0"
+    host = os.getenv('FLASK_RUN_HOST', default_host)
+
+    logger.info(f"Starting Flask app on {host}:{port} (debug={debug})")
     app.run(debug=debug, port=port, host=host)
