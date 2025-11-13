@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useState, useCallback } from 'react';
 import './RecentComments.css';
 
 export default function RecentComments() {
@@ -6,17 +6,16 @@ export default function RecentComments() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
   const [lastUpdated, setLastUpdated] = useState(null);
-  const [isAutoRefreshing, setIsAutoRefreshing] = useState(false);
+  const [isRefreshing, setIsRefreshing] = useState(false);
 
   const apiUrl = '/api/comments';
 
-  const fetchComments = async (isManual = false) => {
+  const fetchComments = useCallback(async (isManual = false) => {
     try {
+      setIsRefreshing(true);
+      
       if (isManual) {
-        setLoading(true);
         setError(null);
-      } else {
-        setIsAutoRefreshing(true);
       }
       
       const response = await fetch(`${apiUrl}?limit=10`);
@@ -41,14 +40,15 @@ export default function RecentComments() {
 
       setComments(commentsWithIds);
       setLastUpdated(new Date());
+      setLoading(false);
     } catch (error) {
       console.error("Error fetching comments:", error);
       setError(error.message);
-    } finally {
       setLoading(false);
-      setIsAutoRefreshing(false);
+    } finally {
+      setIsRefreshing(false);
     }
-  };
+  }, [apiUrl]);
 
   useEffect(() => {
     // Initial fetch
@@ -60,7 +60,7 @@ export default function RecentComments() {
     }, 10000);
     
     return () => clearInterval(interval);
-  }, []);
+  }, [fetchComments]);
 
   const getSentimentClass = (sentiment) => {
     switch (sentiment?.toLowerCase()) {
@@ -134,10 +134,10 @@ export default function RecentComments() {
           <h3 className="recent-comments-title">Recent Comments</h3>
           <button 
             onClick={() => fetchComments(true)}
-            disabled={loading}
+            disabled={isRefreshing}
             className="recent-comments-refresh-button"
           >
-            {loading ? 'Refreshing...' : 'Refresh'}
+            {isRefreshing ? 'Refreshing...' : 'Refresh'}
           </button>
         </div>
         <div className="recent-comments-no-data">
@@ -152,7 +152,7 @@ export default function RecentComments() {
       <div className="recent-comments-header">
         <h3 className="recent-comments-title">
           Recent Comments
-          {isAutoRefreshing && (
+          {isRefreshing && (
             <span className="auto-refresh-indicator"> 🔄</span>
           )}
         </h3>
@@ -164,10 +164,10 @@ export default function RecentComments() {
           )}
           <button 
             onClick={() => fetchComments(true)}
-            disabled={loading}
+            disabled={isRefreshing}
             className="recent-comments-refresh-button"
           >
-            {loading ? 'Refreshing...' : 'Refresh Now'}
+            {isRefreshing ? 'Refreshing...' : 'Refresh Now'}
           </button>
         </div>
       </div>
@@ -205,12 +205,6 @@ export default function RecentComments() {
       <div className="auto-refresh-info">
         <small>📡 Auto-refreshes every 10 seconds</small>
       </div>
-      
-      {loading && comments.length > 0 && (
-        <div className="recent-comments-updating">
-          <p>🔄 Updating...</p>
-        </div>
-      )}
     </div>
   );
 }
