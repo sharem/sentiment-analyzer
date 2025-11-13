@@ -72,11 +72,11 @@ sleep 15
 start_python_service "app.py" "Backend API"
 sleep 5
 
-# Check if backend is ready
-if ! check_service "Backend API" "5000"; then
+# Check if backend is ready (using || to handle failure explicitly)
+check_service "Backend API" "5000" || {
     echo "❌ Backend failed to start. Check logs/app.log"
     exit 1
-fi
+}
 
 # 3. Start Consumer
 start_python_service "kafka/consumer.py" "Sentiment Consumer"
@@ -103,7 +103,7 @@ else
 fi
 cd ..
 
-# Wait for frontend to be ready
+# Wait for frontend to be ready (allow failure for frontend)
 sleep 10
 if ! check_service "Frontend" "4321"; then
     echo "⚠️  Frontend may not be ready yet, but continuing..."
