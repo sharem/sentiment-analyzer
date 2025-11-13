@@ -3,9 +3,12 @@
 import threading
 import json
 import os
+import logging
 from collections import deque
 from typing import Dict, List, Optional
 from datetime import datetime
+
+logger = logging.getLogger(__name__)
 
 
 class SentimentDataService:
@@ -42,8 +45,11 @@ class SentimentDataService:
 
                     # Recalculate sentiment counts
                     self._recalculate_counts()
-        except (json.JSONDecodeError, FileNotFoundError, KeyError):
-            pass
+        except (json.JSONDecodeError, FileNotFoundError, KeyError) as e:
+            # Start with empty data if file is corrupted or doesn't exist
+            logger.warning(
+                f"Could not load data from {self._storage_file}: {e}"
+            )
 
     def _save_data(self) -> None:
         """Save data to persistent storage."""
@@ -54,8 +60,9 @@ class SentimentDataService:
             }
             with open(self._storage_file, 'w') as f:
                 json.dump(data, f, indent=2)
-        except Exception:
-            pass
+        except Exception as e:
+            # Continue operation even if persistence fails
+            logger.error(f"Failed to save data to {self._storage_file}: {e}")
 
     def _recalculate_counts(self) -> None:
         """Recalculate sentiment counts from current comments."""
