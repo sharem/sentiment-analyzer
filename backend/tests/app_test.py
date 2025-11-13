@@ -76,6 +76,16 @@ class TestCommentsEndpoint:
         assert isinstance(data, list)
         assert len(data) <= 2
 
+    def test_comments_endpoint_max_limit(self, client):
+        # Test that limit is capped at 50
+        response = client.get('/api/comments?limit=100')
+        assert response.status_code == 200
+
+        data = json.loads(response.data)
+        assert isinstance(data, list)
+        # Should not exceed 50 even if requested more
+        assert len(data) <= 50
+
     def test_comments_endpoint_invalid_limit(self, client):
         response = client.get('/api/comments?limit=abc')
         assert response.status_code == 500
@@ -139,11 +149,11 @@ class TestSecurity:
     def test_cors_headers(self, client):
         response = client.get('/api/sentiment')
         assert 'Access-Control-Allow-Credentials' in response.headers
+        assert response.headers['Access-Control-Allow-Credentials'] == 'true'
 
     def test_security_headers(self, client):
         response = client.get('/api/sentiment')
 
-        # Check all the security headers that should always be present
         assert response.headers['X-Content-Type-Options'] == 'nosniff'
         assert response.headers['X-Frame-Options'] == 'DENY'
         assert response.headers['X-XSS-Protection'] == '1; mode=block'

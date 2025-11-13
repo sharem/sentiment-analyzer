@@ -26,9 +26,9 @@ def temp_file():
 
 
 @pytest.fixture
-def service():
+def service(temp_file):
     """Create a SentimentDataService instance for testing."""
-    service = SentimentDataService(max_comments=5)
+    service = SentimentDataService(max_comments=5, storage_file=temp_file)
     yield service
     service.clear_data()
 
@@ -55,11 +55,15 @@ class TestInitialization:
     def test_default_initialization(self):
         service = SentimentDataService()
         assert len(service.get_recent_comments()) == 0
-        expected_counts = {'positive': 0, 'negative': 0, 'neutral': 0}
-        assert service.get_sentiment_counts() == expected_counts
+        assert service.get_sentiment_counts() == {
+            'positive': 0, 'negative': 0, 'neutral': 0
+        }
 
-    def test_custom_initialization(self):
-        service = SentimentDataService(max_comments=50)
+    def test_custom_initialization(self, temp_file):
+        service = SentimentDataService(
+            max_comments=50, 
+            storage_file=temp_file
+        )
         assert service._max_comments == 50
         assert len(service.get_recent_comments()) == 0
 
@@ -172,10 +176,16 @@ class TestPersistence:
     """Test persistence functionality."""
 
     def test_save_and_load_data(self, temp_file):
-        service1 = SentimentDataService(max_comments=5, storage_file=temp_file)
+        service1 = SentimentDataService(
+            max_comments=5, 
+            storage_file=temp_file
+        )
         service1.add_comment("Persistent comment", "positive", 0.7)
 
-        service2 = SentimentDataService(max_comments=5, storage_file=temp_file)
+        service2 = SentimentDataService(
+            max_comments=5, 
+            storage_file=temp_file
+        )
 
         comments = service2.get_recent_comments()
         assert len(comments) == 1
