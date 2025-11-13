@@ -12,17 +12,16 @@ export default function SentimentChart() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
   const [lastUpdated, setLastUpdated] = useState(null);
-  const [isAutoRefreshing, setIsAutoRefreshing] = useState(false);
+  const [isRefreshing, setIsRefreshing] = useState(false);
 
   const apiUrl = '/api/sentiment';
 
   const fetchSentimentData = useCallback(async (isManual = false) => {
     try {
+      setIsRefreshing(true);
+      
       if (isManual) {
-        setLoading(true);
         setError(null);
-      } else {
-        setIsAutoRefreshing(true);
       }
             
       const response = await fetch(apiUrl);
@@ -47,12 +46,13 @@ export default function SentimentChart() {
       });
       
       setLastUpdated(new Date());
+      setLoading(false);
     } catch (error) {
       console.error("Error fetching sentiment data:", error);
       setError(error.message);
-    } finally {
       setLoading(false);
-      setIsAutoRefreshing(false);
+    } finally {
+      setIsRefreshing(false);
     }
   }, [apiUrl]);
 
@@ -158,7 +158,7 @@ export default function SentimentChart() {
       <div className="sentiment-chart-header">
         <h3 className="sentiment-chart-title">
           Sentiment Analysis
-          {isAutoRefreshing && (
+          {isRefreshing && (
             <span className="auto-refresh-indicator"> 🔄</span>
           )}
         </h3>
@@ -170,10 +170,10 @@ export default function SentimentChart() {
           )}
           <button 
             onClick={() => fetchSentimentData(true)}
-            disabled={loading || isAutoRefreshing}
+            disabled={isRefreshing}
             className="sentiment-chart-refresh-button"
           >
-            {loading ? 'Refreshing...' : 'Refresh Now'}
+            {isRefreshing ? 'Refreshing...' : 'Refresh Now'}
           </button>
         </div>
       </div>
