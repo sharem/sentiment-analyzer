@@ -58,29 +58,29 @@ def main():
     """Main producer loop."""
     reddit = create_reddit_client()
     producer = create_kafka_producer()
-    
+
     subreddit = reddit.subreddit("AskReddit")
     logger.info("Starting to stream comments from r/AskReddit...")
-    
+
     try:
         for comment in subreddit.stream.comments(skip_existing=True):
             try:
                 message = {"text": comment.body}
                 future = producer.send("reddit-comments", value=message)
-                
+
                 # Wait for send to complete (optional, for error checking)
                 future.get(timeout=10)
-                
+
                 logger.info(f"Sent comment: {message['text'][:50]}...")
                 time.sleep(1)  # Throttle to avoid rate limits
-                
+
             except KafkaError as e:
                 logger.error(f"Failed to send message to Kafka: {e}")
                 continue
             except Exception as e:
                 logger.error(f"Error processing comment: {e}")
                 continue
-                
+
     except KeyboardInterrupt:
         logger.info("Shutdown requested... exiting gracefully")
     except praw.exceptions.APIException as e:

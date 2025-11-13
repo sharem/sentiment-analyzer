@@ -61,7 +61,7 @@ class TestInitialization:
 
     def test_custom_initialization(self, temp_file):
         service = SentimentDataService(
-            max_comments=50, 
+            max_comments=50,
             storage_file=temp_file
         )
         assert service._max_comments == 50
@@ -177,13 +177,13 @@ class TestPersistence:
 
     def test_save_and_load_data(self, temp_file):
         service1 = SentimentDataService(
-            max_comments=5, 
+            max_comments=5,
             storage_file=temp_file
         )
         service1.add_comment("Persistent comment", "positive", 0.7)
 
         service2 = SentimentDataService(
-            max_comments=5, 
+            max_comments=5,
             storage_file=temp_file
         )
 
