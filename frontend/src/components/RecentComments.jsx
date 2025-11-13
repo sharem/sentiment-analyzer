@@ -36,7 +36,7 @@ export default function RecentComments() {
       // Add unique IDs to comments if they don't exist
       const commentsWithIds = commentsData.map((comment, index) => ({
         ...comment,
-        id: comment.id || `${comment.timestamp || Date.now()}-${index}-${Math.random().toString(36).substr(2, 9)}`
+        id: comment.id || `${comment.timestamp || Date.now()}-${index}-${Math.random().toString(36).substring(2, 11)}`
       }));
 
       setComments(commentsWithIds);
