@@ -41,28 +41,33 @@ consumer = KafkaConsumer(
 logger.info("Starting sentiment analysis consumer...")
 logger.info("Processing messages from Kafka topic 'reddit-comments'")
 
-for message in consumer:
-    try:
-        text = message.value['text']
-        polarity = TextBlob(text).sentiment.polarity
+try:
+    for message in consumer:
+        try:
+            text = message.value['text']
+            polarity = TextBlob(text).sentiment.polarity
 
-        # Classify sentiment based on polarity
-        if polarity > POSITIVE_THRESHOLD:
-            sentiment = "positive"
-        elif polarity < NEGATIVE_THRESHOLD:
-            sentiment = "negative"
-        else:
-            sentiment = "neutral"
+            # Classify sentiment based on polarity
+            if polarity > POSITIVE_THRESHOLD:
+                sentiment = "positive"
+            elif polarity < NEGATIVE_THRESHOLD:
+                sentiment = "negative"
+            else:
+                sentiment = "neutral"
 
-        # Store the analyzed comment in the data service
-        sentiment_data_service.add_comment(text, sentiment, polarity)
+            # Store the analyzed comment in the data service
+            sentiment_data_service.add_comment(text, sentiment, polarity)
 
-        # Log to console for monitoring
-        sentiment_text = f"{sentiment} ({polarity:.2f})"
-        logger.info(
-            f"Processed: {text[:100]}... | Sentiment: {sentiment_text}"
-        )
-    except KeyError as e:
-        logger.error(f"Missing 'text' field in message: {e}")
-    except Exception as e:
-        logger.error(f"Error processing message: {e}", exc_info=True)
+            # Log to console for monitoring
+            sentiment_text = f"{sentiment} ({polarity:.2f})"
+            logger.info(
+                f"Processed: {text[:100]}... | Sentiment: {sentiment_text}"
+            )
+        except KeyError as e:
+            logger.error(f"Missing 'text' field in message: {e}")
+        except Exception as e:
+            logger.error(f"Error processing message: {e}", exc_info=True)
+except KeyboardInterrupt:
+    logger.info("Shutdown requested... closing Kafka consumer.")
+finally:
+    consumer.close()
