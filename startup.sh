@@ -23,7 +23,9 @@ check_service() {
 
     echo "⏳ Waiting for $service_name to be ready..."
     while [ $attempt -le $max_attempts ]; do
-        if curl -s "http://localhost:$port" > /dev/null 2>&1; then
+        # Try both 127.0.0.1 and localhost for better compatibility
+        if curl -s "http://127.0.0.1:$port" > /dev/null 2>&1 || \
+           curl -s "http://localhost:$port" > /dev/null 2>&1; then
             echo "✅ $service_name is ready!"
             return 0
         fi
@@ -141,7 +143,7 @@ echo "=================================================="
 echo ""
 echo "📊 Services Running:"
 echo "   • Kafka & Zookeeper: http://localhost:9092"
-echo "   • Backend API:        http://localhost:5000"
+echo "   • Backend API:        http://127.0.0.1:5000"
 echo "   • Frontend Dashboard: http://localhost:4321"
 echo ""
 echo "📝 Log Files:"
@@ -151,7 +153,7 @@ echo "   • Producer:   logs/producer.log"
 echo "   • Frontend:   logs/frontend.log"
 echo ""
 echo "🔍 Monitor the pipeline:"
-echo "   curl http://localhost:5000/api/stats"
+echo "   curl http://127.0.0.1:5000/api/stats"
 echo ""
 echo "🛑 To stop all services, run: ./shutdown.sh"
 echo ""

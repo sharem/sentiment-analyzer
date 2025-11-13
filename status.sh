@@ -43,6 +43,11 @@ check_api_status() {
     
     if curl -s http://localhost:5000/api/stats >/dev/null 2>&1; then
         echo "✅ Backend API is responding"
+        # Display stats if available
+        stats=$(curl -s http://localhost:5000/api/stats 2>/dev/null)
+        if [ -n "$stats" ]; then
+            echo "   Stats: $stats"
+        fi
     else
         echo "❌ Backend API not responding"
     fi
@@ -77,7 +82,7 @@ echo "------------------"
 check_port "4321" "Frontend Dashboard"
 
 # Check API status if backend is running
-if curl -s http://localhost:5000/health >/dev/null 2>&1 || curl -s http://localhost:5000/api/stats >/dev/null 2>&1; then
+if curl -s http://localhost:5000/api/stats >/dev/null 2>&1; then
     check_api_status
 fi
 
