@@ -8,17 +8,15 @@ export default function RecentComments() {
   const [lastUpdated, setLastUpdated] = useState(null);
   const [isRefreshing, setIsRefreshing] = useState(false);
 
-  const apiUrl = '/api/comments';
-
   const fetchComments = useCallback(async (isManual = false) => {
     try {
-      setIsRefreshing(true);
-      
       if (isManual) {
         setError(null);
       }
       
-      const response = await fetch(`${apiUrl}?limit=10`);
+      setIsRefreshing(true);
+      
+      const response = await fetch('/api/comments?limit=10');
       
       if (!response.ok) {
         throw new Error(`HTTP error! status: ${response.status}`);
@@ -33,14 +31,15 @@ export default function RecentComments() {
       }
 
       // Add unique IDs to comments if they don't exist
-      const commentsWithIds = commentsData.map((comment, index) => ({
+      const commentsWithIds = commentsData.map((comment) => ({
         ...comment,
-        id: comment.id || `${comment.timestamp || Date.now()}-${index}-${Math.random().toString(36).substring(2, 11)}`
+        id: comment.id || crypto.randomUUID()
       }));
 
       setComments(commentsWithIds);
       setLastUpdated(new Date());
       setLoading(false);
+      setError(null);
     } catch (error) {
       console.error("Error fetching comments:", error);
       setError(error.message);
@@ -48,7 +47,7 @@ export default function RecentComments() {
     } finally {
       setIsRefreshing(false);
     }
-  }, [apiUrl]);
+  }, []);
 
   useEffect(() => {
     // Initial fetch

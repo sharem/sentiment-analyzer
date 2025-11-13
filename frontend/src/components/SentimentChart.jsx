@@ -14,17 +14,15 @@ export default function SentimentChart() {
   const [lastUpdated, setLastUpdated] = useState(null);
   const [isRefreshing, setIsRefreshing] = useState(false);
 
-  const apiUrl = '/api/sentiment';
-
   const fetchSentimentData = useCallback(async (isManual = false) => {
     try {
-      setIsRefreshing(true);
-      
       if (isManual) {
         setError(null);
       }
+      
+      setIsRefreshing(true);
             
-      const response = await fetch(apiUrl);
+      const response = await fetch('/api/sentiment');
       
       if (!response.ok) {
         throw new Error(`HTTP error! status: ${response.status}`);
@@ -47,6 +45,7 @@ export default function SentimentChart() {
       
       setLastUpdated(new Date());
       setLoading(false);
+      setError(null);
     } catch (error) {
       console.error("Error fetching sentiment data:", error);
       setError(error.message);
@@ -54,8 +53,8 @@ export default function SentimentChart() {
     } finally {
       setIsRefreshing(false);
     }
-  }, [apiUrl]);
-
+  }, []);
+  
   useEffect(() => {
     // Initial fetch
     fetchSentimentData(true);
@@ -106,7 +105,7 @@ export default function SentimentChart() {
     },
     animation: {
       animateRotate: true,
-      animateScale: false,
+      animateScale: true,
       duration: 500,
       easing: 'easeInOutQuart'
     }
