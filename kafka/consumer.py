@@ -3,8 +3,16 @@
 import json
 import sys
 import os
+import logging
 from kafka import KafkaConsumer
 from textblob import TextBlob
+
+# Configure logging
+logging.basicConfig(
+    level=logging.INFO,
+    format='%(asctime)s - %(name)s - %(levelname)s - %(message)s'
+)
+logger = logging.getLogger(__name__)
 
 # Add the backend directory to the Python path to import data_service
 sys.path.append(os.path.join(os.path.dirname(__file__), '..', 'backend'))
@@ -30,8 +38,8 @@ consumer = KafkaConsumer(
     value_deserializer=lambda m: json.loads(m.decode('utf-8'))
 )
 
-print("Starting sentiment analysis consumer...")
-print("Processing messages from Kafka topic 'reddit-comments'")
+logger.info("Starting sentiment analysis consumer...")
+logger.info("Processing messages from Kafka topic 'reddit-comments'")
 
 for message in consumer:
     try:
@@ -49,11 +57,12 @@ for message in consumer:
         # Store the analyzed comment in the data service
         sentiment_data_service.add_comment(text, sentiment, polarity)
 
-        # Print to console for monitoring
+        # Log to console for monitoring
         sentiment_text = f"{sentiment} ({polarity:.2f})"
-        print(f"Processed: {text[:100]}... | Sentiment: {sentiment_text}")
-
+        logger.info(
+            f"Processed: {text[:100]}... | Sentiment: {sentiment_text}"
+        )
     except KeyError as e:
-        print(f"Error: Missing 'text' field in message: {e}")
+        logger.error(f"Missing 'text' field in message: {e}")
     except Exception as e:
-        print(f"Error processing message: {e}")
+        logger.error(f"Error processing message: {e}", exc_info=True)
