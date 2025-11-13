@@ -1,63 +1,85 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useState, useCallback, useMemo } from 'react';
 import { Pie } from 'react-chartjs-2';
 import Chart from 'chart.js/auto';
 import './SentimentChart.css';
 
 export default function SentimentChart() {
-  const [data, setData] = useState(null);
+  const [sentimentCounts, setSentimentCounts] = useState({
+    positive: 0,
+    negative: 0,
+    neutral: 0
+  });
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
+  const [lastUpdated, setLastUpdated] = useState(null);
+  const [isRefreshing, setIsRefreshing] = useState(false);
 
-  const apiUrl = '/api/sentiment';
-
-  const fetchSentimentData = async () => {
+  const fetchSentimentData = useCallback(async (isManual = false) => {
     try {
-      setLoading(true);
-      setError(null);
+      if (isManual) {
+        setError(null);
+      }
+      
+      setIsRefreshing(true);
             
-      const response = await fetch(apiUrl);
+      const response = await fetch('/api/sentiment');
       
       if (!response.ok) {
         throw new Error(`HTTP error! status: ${response.status}`);
       }
       
       const sentimentData = await response.json();
-      console.log('Received data:', sentimentData);
+      console.log('Received sentiment data:', sentimentData);
       
       // Validate data structure
       if (!sentimentData || typeof sentimentData !== 'object') {
         throw new Error('Invalid data format received');
       }
 
-      const chartData = {
-        labels: ['Positive', 'Negative', 'Neutral'],
-        datasets: [{
-          data: [
-            sentimentData.positive || 0, 
-            sentimentData.negative || 0, 
-            sentimentData.neutral || 0
-          ],
-          backgroundColor: ['#10B981', '#EF4444', '#F59E0B'],
-          hoverBackgroundColor: ['#059669', '#DC2626', '#D97706'],
-          borderWidth: 2,
-          borderColor: '#ffffff'
-        }]
-      };
+      // Update only the counts, not the entire data structure
+      setSentimentCounts({
+        positive: sentimentData.positive || 0,
+        negative: sentimentData.negative || 0,
+        neutral: sentimentData.neutral || 0
+      });
       
-      setData(chartData);
+      setLastUpdated(new Date());
+      setLoading(false);
+      setError(null);
     } catch (error) {
       console.error("Error fetching sentiment data:", error);
       setError(error.message);
-    } finally {
       setLoading(false);
+    } finally {
+      setIsRefreshing(false);
     }
-  };
-
-  useEffect(() => {
-    fetchSentimentData();
-  }, [apiUrl]);
+  }, []);
   
-  const chartOptions = {
+  useEffect(() => {
+    // Initial fetch
+    fetchSentimentData(true);
+    
+    // Set up automatic refresh every 10 seconds
+    const interval = setInterval(() => {
+      fetchSentimentData(false);
+    }, 10000);
+    
+    return () => clearInterval(interval);
+  }, [fetchSentimentData]);
+
+  // Memoize the chart data structure
+  const chartData = useMemo(() => ({
+    labels: ['Positive', 'Negative', 'Neutral'],
+    datasets: [{
+      data: [sentimentCounts.positive, sentimentCounts.negative, sentimentCounts.neutral],
+      backgroundColor: ['#10B981', '#EF4444', '#F59E0B'],
+      hoverBackgroundColor: ['#059669', '#DC2626', '#D97706'],
+      borderWidth: 2,
+      borderColor: '#ffffff'
+    }]
+  }), [sentimentCounts.positive, sentimentCounts.negative, sentimentCounts.neutral]);
+  
+  const chartOptions = useMemo(() => ({
     responsive: true,
     maintainAspectRatio: false,
     plugins: {
@@ -83,12 +105,18 @@ export default function SentimentChart() {
     },
     animation: {
       animateRotate: true,
-      animateScale: true
+      animateScale: true,
+      duration: 500,
+      easing: 'easeInOutQuart'
     }
-  };
+  }), []);
 
-  // Loading state
-  if (loading) {
+  const hasNoData = sentimentCounts.positive === 0 && 
+                    sentimentCounts.negative === 0 && 
+                    sentimentCounts.neutral === 0;
+
+  // Loading state (only on initial load)
+  if (loading && hasNoData) {
     return (
       <div className="sentiment-chart-container sentiment-chart-loading">
         <div className="loading-spinner">
@@ -106,7 +134,7 @@ export default function SentimentChart() {
           Failed to load sentiment data: {error}
         </p>
         <button 
-          onClick={fetchSentimentData}
+          onClick={() => fetchSentimentData(true)}
           className="sentiment-chart-button"
         >
           Retry
@@ -116,7 +144,7 @@ export default function SentimentChart() {
   }
 
   // No data state
-  if (!data || data.datasets[0].data.every(value => value === 0)) {
+  if (hasNoData) {
     return (
       <div className="sentiment-chart-container sentiment-chart-no-data">
         <p>No sentiment data available</p>
@@ -127,17 +155,32 @@ export default function SentimentChart() {
   return (
     <div className="sentiment-chart-container">
       <div className="sentiment-chart-header">
-        <h3 className="sentiment-chart-title">Sentiment Analysis</h3>
-        <button 
-          onClick={fetchSentimentData}
-          disabled={loading}
-          className="sentiment-chart-refresh-button"
-        >
-          {loading ? 'Refreshing...' : 'Refresh'}
-        </button>
+        <h3 className="sentiment-chart-title">
+          Sentiment Analysis
+          {isRefreshing && (
+            <span className="auto-refresh-indicator"> 🔄</span>
+          )}
+        </h3>
+        <div className="sentiment-chart-controls">
+          {lastUpdated && (
+            <span className="last-updated">
+              Updated: {lastUpdated.toLocaleTimeString()}
+            </span>
+          )}
+          <button 
+            onClick={() => fetchSentimentData(true)}
+            disabled={isRefreshing}
+            className="sentiment-chart-refresh-button"
+          >
+            {isRefreshing ? 'Refreshing...' : 'Refresh Now'}
+          </button>
+        </div>
       </div>
       <div className="sentiment-chart-wrapper">
-        <Pie data={data} options={chartOptions} />
+        <Pie data={chartData} options={chartOptions} />
+      </div>
+      <div className="auto-refresh-info">
+        <small>📡 Auto-refreshes every 10 seconds</small>
       </div>
     </div>
   );

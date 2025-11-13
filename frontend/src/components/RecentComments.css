@@ -14,6 +14,8 @@
   margin-bottom: 20px;
   padding-bottom: 15px;
   border-bottom: 2px solid #E5E7EB;
+  flex-wrap: wrap;
+  gap: 10px;
 }
 
 .recent-comments-title {
@@ -21,6 +23,44 @@
   color: #374151;
   font-size: 1.25rem;
   font-weight: 600;
+  display: flex;
+  align-items: center;
+}
+
+.recent-comments-controls {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  flex-wrap: wrap;
+}
+
+.auto-refresh-indicator {
+  color: #10B981;
+  font-size: 0.875rem;
+  animation: spin 1s linear infinite;
+}
+
+@keyframes spin {
+  from { transform: rotate(0deg); }
+  to { transform: rotate(360deg); }
+}
+
+.last-updated {
+  font-size: 0.75rem;
+  color: #6B7280;
+  white-space: nowrap;
+}
+
+.auto-refresh-info {
+  margin-top: 15px;
+  text-align: center;
+  border-top: 1px solid #E5E7EB;
+  padding-top: 10px;
+}
+
+.auto-refresh-info small {
+  color: #6B7280;
+  font-size: 0.75rem;
 }
 
 .recent-comments-refresh-button {
@@ -92,12 +132,24 @@
 }
 
 .comment-text {
-  margin: 0;
+  margin: 0 0 5px 0;
   color: #374151;
   font-size: 0.875rem;
   line-height: 1.5;
   word-wrap: break-word;
   overflow-wrap: break-word;
+}
+
+.comment-timestamp {
+  color: #9CA3AF;
+  font-size: 0.7rem;
+  margin: 0;
+}
+
+.polarity-score {
+  font-size: 0.65rem;
+  margin-left: 4px;
+  opacity: 0.8;
 }
 
 .comment-sentiment {

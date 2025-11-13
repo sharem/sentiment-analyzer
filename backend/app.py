@@ -1,12 +1,13 @@
-""" Flask application to serve sentiment analysis data. """
+"""Flask application to serve sentiment analysis data."""
 
-import os
 import logging
-from typing import Dict
+import os
+
+from dotenv import load_dotenv
 from flask import Flask, jsonify, request
 from flask_cors import CORS
-from dotenv import load_dotenv
-from dummy_data import recent_comments
+
+from data_service import SentimentDataService
 
 # Load environment variables
 load_dotenv()
@@ -24,15 +25,11 @@ CORS(app, origins=allowed_origins, supports_credentials=True)
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
 
-
-def get_sentiment_counts() -> Dict[str, int]:
-    """Calculate sentiment counts from recent comments."""
-    counts: Dict[str, int] = {"positive": 0, "neutral": 0, "negative": 0}
-    for comment in recent_comments:
-        sentiment = comment.get("sentiment", "neutral")
-        if sentiment in counts:
-            counts[sentiment] += 1
-    return counts
+# Initialize the sentiment data service
+sentiment_data_service = SentimentDataService(
+    max_comments=100,
+    storage_file=os.getenv('SENTIMENT_DATA_FILE', '/tmp/sentiment_data.json')
+)
 
 
 # Routes
@@ -40,8 +37,8 @@ def get_sentiment_counts() -> Dict[str, int]:
 def sentiment_data():
     """Endpoint to get sentiment analysis counts."""
     try:
-        return jsonify(get_sentiment_counts())
-    except (ValueError, KeyError) as e:
+        return jsonify(sentiment_data_service.get_sentiment_counts())
+    except Exception as e:
         logger.exception("Error in sentiment endpoint: %s", str(e))
         return jsonify({"error": "Internal server error"}), 500
 
@@ -50,11 +47,33 @@ def sentiment_data():
 def comments():
     """Endpoint to get recent comments with sentiment."""
     try:
-        # Add pagination to prevent data exposure
-        limit = min(int(request.args.get('limit', 10)), 50)
-        return jsonify(recent_comments[:limit])
-    except (ValueError, TypeError) as e:
+        # Validate and parse limit parameter
+        limit_param = request.args.get('limit', '10')
+        try:
+            limit = int(limit_param)
+            if limit < 1:
+                return jsonify(
+                    {"error": "Limit must be a positive integer"}
+                ), 400
+            # Cap at reasonable maximum to prevent abuse
+            limit = min(limit, 100)
+        except ValueError:
+            return jsonify(
+                {"error": "Invalid limit parameter: must be an integer"}
+            ), 400
+        return jsonify(sentiment_data_service.get_recent_comments(limit))
+    except Exception as e:
         logger.exception("Error in comments endpoint: %s", str(e))
+        return jsonify({"error": "Internal server error"}), 500
+
+
+@app.route("/api/stats")
+def stats():
+    """Endpoint to get overall statistics."""
+    try:
+        return jsonify(sentiment_data_service.get_stats())
+    except Exception as e:
+        logger.exception("Error in stats endpoint: %s", str(e))
         return jsonify({"error": "Internal server error"}), 500
 
 
@@ -86,7 +105,14 @@ def internal_error(error):
 
 # Application entry point
 if __name__ == "__main__":
-    # More secure production settings
+    # Configuration from environment variables with sensible defaults
     port = int(os.getenv('PORT', '5000'))
     debug = os.getenv('FLASK_ENV') == 'development'
-    app.run(debug=debug, port=port, host="0.0.0.0")
+
+    # Use environment variable for host configuration
+    # Default to localhost in development, 0.0.0.0 in production
+    default_host = "127.0.0.1" if debug else "0.0.0.0"
+    host = os.getenv('FLASK_RUN_HOST', default_host)
+
+    logger.info("Starting Flask app on %s:%s (debug=%s)", host, port, debug)
+    app.run(debug=debug, port=port, host=host)
