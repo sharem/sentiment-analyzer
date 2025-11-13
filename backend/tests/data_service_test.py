@@ -49,8 +49,8 @@ def service_with_data(service):
 class TestInitialization:
     """Test service initialization."""
 
-    def test_default_initialization(self):
-        service = SentimentDataService()
+    def test_default_initialization(self, temp_file):
+        service = SentimentDataService(storage_file=temp_file)
         assert len(service.get_recent_comments()) == 0
         assert service.get_sentiment_counts() == {
             'positive': 0, 'negative': 0, 'neutral': 0
