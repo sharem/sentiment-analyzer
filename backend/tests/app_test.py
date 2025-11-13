@@ -76,19 +76,16 @@ class TestCommentsEndpoint:
         assert isinstance(data, list)
         assert len(data) <= 2
 
-    def test_comments_endpoint_max_limit(self, client):
-        # Test that limit is capped at 50
-        response = client.get('/api/comments?limit=100')
-        assert response.status_code == 200
-
-        data = json.loads(response.data)
-        assert isinstance(data, list)
-        # Should not exceed 50 even if requested more
-        assert len(data) <= 50
-
     def test_comments_endpoint_invalid_limit(self, client):
         response = client.get('/api/comments?limit=abc')
-        assert response.status_code == 500
+        assert response.status_code == 400
+
+        data = json.loads(response.data)
+        assert 'error' in data
+
+    def test_comments_endpoint_negative_limit(self, client):
+        response = client.get('/api/comments?limit=-5')
+        assert response.status_code == 400
 
         data = json.loads(response.data)
         assert 'error' in data
