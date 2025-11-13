@@ -43,15 +43,15 @@ check_api_status() {
     
     if curl -s http://localhost:5000/api/stats >/dev/null 2>&1; then
         stats=$(curl -s http://localhost:5000/api/stats)
-        total=$(echo $stats | grep -o '"total_comments":[0-9]*' | cut -d: -f2)
-        positive=$(echo $stats | grep -o '"positive":[0-9]*' | cut -d: -f2)
-        negative=$(echo $stats | grep -o '"negative":[0-9]*' | cut -d: -f2)
-        neutral=$(echo $stats | grep -o '"neutral":[0-9]*' | cut -d: -f2)
+        total=$(echo "$stats" | grep -o '"total_comments":[0-9]*' | cut -d: -f2)
+        positive=$(echo "$stats" | grep -o '"positive":[0-9]*' | cut -d: -f2)
+        negative=$(echo "$stats" | grep -o '"negative":[0-9]*' | cut -d: -f2)
+        neutral=$(echo "$stats" | grep -o '"neutral":[0-9]*' | cut -d: -f2)
         
-        echo "   📈 Total Comments: ${total:-N/A}"
-        echo "   😊 Positive: ${positive:-N/A}"
-        echo "   😞 Negative: ${negative:-N/A}"
-        echo "   😐 Neutral: ${neutral:-N/A}"
+        echo "   📈 Total Comments: \"${total:-N/A}\""
+        echo "   😊 Positive: \"${positive:-N/A}\""
+        echo "   😞 Negative: \"${negative:-N/A}\""
+        echo "   😐 Neutral: \"${neutral:-N/A}\""
     else
         echo "   ❌ Backend API not responding"
     fi
