@@ -27,14 +27,13 @@ If you need to run components individually:
 # Start Kafka infrastructure first
 cd kafka
 docker-compose up -d
+cd ..
 
-# Start producer (in separate terminal)
-cd kafka
-python producer.py
+# Start producer (from project root, in separate terminal)
+python kafka/producer.py
 
-# Start consumer (in separate terminal)  
-cd kafka
-python consumer.py
+# Start consumer (from project root, in separate terminal)
+python kafka/consumer.py
 ```
 
 ## Configuration
