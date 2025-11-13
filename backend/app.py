@@ -6,8 +6,7 @@ import os
 from dotenv import load_dotenv
 from flask import Flask, jsonify, request
 from flask_cors import CORS
-
-from data_service import SentimentDataService
+from data_service import sentiment_data_service
 
 # Load environment variables
 load_dotenv()
@@ -24,12 +23,6 @@ CORS(app, origins=allowed_origins, supports_credentials=True)
 
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
-
-# Initialize the sentiment data service
-sentiment_data_service = SentimentDataService(
-    max_comments=100,
-    storage_file=os.getenv('SENTIMENT_DATA_FILE', '/tmp/sentiment_data.json')
-)
 
 
 # Routes

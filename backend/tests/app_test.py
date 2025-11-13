@@ -8,8 +8,9 @@ import sys
 
 import pytest
 
-# Import the Flask application
-sys.path.append(os.path.dirname(os.path.dirname(__file__)))
+# Add backend directory to path for proper imports
+sys.path.insert(0, os.path.dirname(os.path.dirname(__file__)))
+
 from app import app  # noqa: E402
 
 
@@ -44,6 +45,7 @@ class TestSentimentEndpoint:
         assert 'neutral' in data
 
     def test_sentiment_endpoint_with_mock(self, client, mocker):
+        # Patch where it's used (in app module), not where it's defined
         mock_service = mocker.patch('app.sentiment_data_service')
         mock_service.get_sentiment_counts.return_value = {
             "positive": 15, "negative": 8, "neutral": 12
@@ -90,6 +92,29 @@ class TestCommentsEndpoint:
         data = json.loads(response.data)
         assert 'error' in data
 
+    def test_comments_endpoint_with_mock(self, client, mocker):
+        mock_service = mocker.patch('app.sentiment_data_service')
+        mock_comments = [
+            {
+                "text": "Test comment 1",
+                "sentiment": "positive",
+                "polarity": 0.5
+            },
+            {
+                "text": "Test comment 2",
+                "sentiment": "negative",
+                "polarity": -0.3
+            }
+        ]
+        mock_service.get_recent_comments.return_value = mock_comments
+        response = client.get('/api/comments?limit=2')
+        assert response.status_code == 200
+
+        data = json.loads(response.data)
+        assert len(data) == 2
+        assert data[0]["text"] == "Test comment 1"
+        mock_service.get_recent_comments.assert_called_once_with(2)
+
 
 class TestStatsEndpoint:
     """Test the /api/stats endpoint."""
@@ -103,10 +128,13 @@ class TestStatsEndpoint:
         assert isinstance(data, dict)
 
     def test_stats_endpoint_with_mock(self, client, mocker):
+        # Patch where it's used (in app module), not where it's defined
         mock_service = mocker.patch('app.sentiment_data_service')
         mock_service.get_stats.return_value = {
             "total_comments": 35,
-            "sentiment_counts": {"positive": 15, "negative": 8, "neutral": 12}
+            "sentiment_counts": {"positive": 15, "negative": 8, "neutral": 12},
+            "oldest_comment_timestamp": "2024-01-01T00:00:00",
+            "newest_comment_timestamp": "2024-01-01T12:00:00"
         }
 
         response = client.get('/api/stats')
@@ -114,6 +142,7 @@ class TestStatsEndpoint:
 
         data = json.loads(response.data)
         assert data["total_comments"] == 35
+        assert data["sentiment_counts"]["positive"] == 15
         mock_service.get_stats.assert_called_once()
 
 
@@ -134,6 +163,32 @@ class TestErrorHandling:
         )
 
         response = client.get('/api/sentiment')
+        assert response.status_code == 500
+
+        data = json.loads(response.data)
+        assert 'error' in data
+
+    def test_comments_service_error(self, client, mocker):
+        # Test error handling for comments endpoint
+        mock_service = mocker.patch('app.sentiment_data_service')
+        mock_service.get_recent_comments.side_effect = Exception(
+            "Database error"
+        )
+
+        response = client.get('/api/comments')
+        assert response.status_code == 500
+
+        data = json.loads(response.data)
+        assert 'error' in data
+
+    def test_stats_service_error(self, client, mocker):
+        # Test error handling for stats endpoint
+        mock_service = mocker.patch('app.sentiment_data_service')
+        mock_service.get_stats.side_effect = IOError(
+            "File read error"
+        )
+
+        response = client.get('/api/stats')
         assert response.status_code == 500
 
         data = json.loads(response.data)
@@ -165,3 +220,34 @@ class TestSecurity:
         for endpoint in endpoints:
             response = client.get(endpoint)
             assert response.content_type == 'application/json'
+
+
+class TestInputValidation:
+    """Test input validation and edge cases."""
+
+    def test_comments_limit_boundary(self, client):
+        # Test maximum limit cap (100)
+        response = client.get('/api/comments?limit=150')
+        assert response.status_code == 200
+
+        data = json.loads(response.data)
+        # Should be capped at 100
+        assert len(data) <= 100
+
+    def test_comments_limit_zero(self, client):
+        # Test zero limit
+        response = client.get('/api/comments?limit=0')
+        assert response.status_code == 400
+
+        data = json.loads(response.data)
+        assert 'error' in data
+
+    def test_comments_default_limit(self, client):
+        # Test default limit when not specified
+        response = client.get('/api/comments')
+        assert response.status_code == 200
+
+        data = json.loads(response.data)
+        assert isinstance(data, list)
+        # Default limit is 10
+        assert len(data) <= 10
