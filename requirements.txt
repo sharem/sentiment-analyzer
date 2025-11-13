@@ -1,12 +1,13 @@
-praw>=7.7.0
+# Main dependencies - keep in sync with pyproject.toml [project.dependencies]
+praw>=7.7.1
 kafka-python>=2.0.2
-textblob>=0.17.0
-flask>=2.3.0
+textblob>=0.18.0
+flask>=3.0.0
 flask-cors>=4.0.0
 python-dotenv>=1.0.0
-requests>=2.32.4
+requests>=2.32.4,<3.0.0
 
-# Testing dependencies
+# Testing dependencies - keep in sync with pyproject.toml [project.optional-dependencies.dev]
 pytest>=8.4.2
 pytest-cov>=7.0.0
 pytest-mock>=3.12.0
