@@ -7,7 +7,7 @@ import time
 
 import pytest
 
-from data_service import SentimentDataService  # noqa: E402
+from data_service import SentimentDataService
 
 
 @pytest.fixture
