@@ -8,20 +8,13 @@ from kafka import KafkaConsumer
 from kafka.errors import KafkaError
 from textblob import TextBlob
 
-# Configure logging
+from backend.data_service import SentimentDataService
+
 logging.basicConfig(
-    level=logging.INFO,
-    format='%(asctime)s - %(levelname)s - %(message)s'
+    level=logging.INFO, format="%(asctime)s - %(levelname)s - %(message)s"
 )
 logger = logging.getLogger(__name__)
 
-# Add the backend directory to the Python path to import data_service
-sys.path.append(os.path.join(os.path.dirname(__file__), '..', 'backend'))
-
-# Import after path setup
-from data_service import SentimentDataService  # noqa: E402
-
-# Sentiment classification thresholds
 POSITIVE_THRESHOLD = 0.1
 NEGATIVE_THRESHOLD = -0.1
 
@@ -29,14 +22,8 @@ NEGATIVE_THRESHOLD = -0.1
 def create_sentiment_service():
     """Create and return sentiment data service."""
     try:
-        storage_file = os.getenv(
-            'SENTIMENT_DATA_FILE',
-            '/tmp/sentiment_data.json'
-        )
-        service = SentimentDataService(
-            max_comments=100,
-            storage_file=storage_file
-        )
+        storage_file = os.getenv("SENTIMENT_DATA_FILE", "/tmp/sentiment_data.json")
+        service = SentimentDataService(max_comments=100, storage_file=storage_file)
         logger.info("Sentiment data service initialized")
         return service
     except Exception as e:
@@ -49,11 +36,11 @@ def create_kafka_consumer():
     try:
         consumer = KafkaConsumer(
             "reddit-comments",
-            bootstrap_servers='localhost:9092',
-            auto_offset_reset='earliest',
-            group_id='sentiment-group',
-            value_deserializer=lambda m: json.loads(m.decode('utf-8')),
-            request_timeout_ms=30000
+            bootstrap_servers="localhost:9092",
+            auto_offset_reset="earliest",
+            group_id="sentiment-group",
+            value_deserializer=lambda m: json.loads(m.decode("utf-8")),
+            request_timeout_ms=30000,
         )
         logger.info("Kafka consumer created successfully")
         return consumer
@@ -88,7 +75,7 @@ def main():
     try:
         for message in consumer:
             try:
-                text = message.value['text']
+                text = message.value["text"]
 
                 # Analyze sentiment
                 sentiment, polarity = analyze_sentiment(text)
@@ -98,9 +85,7 @@ def main():
 
                 # Log to console for monitoring
                 sentiment_text = f"{sentiment} ({polarity:.2f})"
-                logger.info(
-                    f"Processed: {text[:100]}... | Sentiment: {sentiment_text}"
-                )
+                logger.info(f"Processed: {text[:100]}... | Sentiment: {sentiment_text}")
 
             except KeyError as e:
                 logger.error(f"Missing 'text' field in message: {e}")
