@@ -3,13 +3,7 @@ Pytest-based tests for Flask API endpoints and application functionality
 """
 
 import json
-import os
-import sys
-
 import pytest
-
-# Add backend directory to path for proper imports
-sys.path.insert(0, os.path.dirname(os.path.dirname(__file__)))
 
 from app import app  # noqa: E402
 
