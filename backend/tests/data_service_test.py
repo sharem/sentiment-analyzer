@@ -2,16 +2,12 @@
 Pytest-based tests for SentimentDataService.
 """
 
-import os
-import sys
 import threading
 import time
 
 import pytest
 
-# Import the module under test
-sys.path.append(os.path.dirname(os.path.dirname(__file__)))
-from data_service import SentimentDataService  # noqa: E402
+from data_service import SentimentDataService
 
 
 @pytest.fixture
