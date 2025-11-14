@@ -34,7 +34,7 @@ package-dir = {"" = "."}
 
 [tool.setuptools.packages.find]
 where = ["."]
-include = ["backend*", "kafka*"]
+include = ["backend*", "data_pipeline*"]
 exclude = ["tests*", "docs*", "*.egg-info"]
 
 [tool.black]

@@ -21,13 +21,13 @@ kill_processes() {
 }
 
 # 1. Stop Python services (using module paths now)
-kill_processes "python.*-m kafka.producer" "Reddit Producer"
-kill_processes "python.*-m kafka.consumer" "Sentiment Consumer"
+kill_processes "python.*-m data_pipeline.producer" "Reddit Producer"
+kill_processes "python.*-m data_pipeline.consumer" "Sentiment Consumer"
 kill_processes "python.*-m backend.app" "Backend API"
 
 # Also catch old-style direct script execution
-kill_processes "python.*kafka/producer.py" "Reddit Producer (legacy)"
-kill_processes "python.*kafka/consumer.py" "Sentiment Consumer (legacy)"
+kill_processes "python.*data_pipeline/producer.py" "Reddit Producer (legacy)"
+kill_processes "python.*data_pipeline/consumer.py" "Sentiment Consumer (legacy)"
 kill_processes "python.*backend/app.py" "Backend API (legacy)"
 
 # 2. Stop Frontend (Node.js)
@@ -43,7 +43,7 @@ pkill -f "npm run dev" 2>/dev/null || true
 
 # 3. Stop Docker services
 echo "🐳 Stopping Docker services..."
-cd kafka 2>/dev/null || true
+cd data_pipeline 2>/dev/null || true
 docker-compose down --volumes --remove-orphans > /dev/null 2>&1 || true
 cd .. 2>/dev/null || true
 echo "   Kafka & Zookeeper stopped"

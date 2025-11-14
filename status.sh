@@ -84,7 +84,7 @@ fi
 echo ""
 echo "🐳 Docker Services:"
 echo "------------------"
-cd kafka 2>/dev/null || true
+cd data_pipeline 2>/dev/null || true
 if docker-compose ps | grep -q "Up"; then
     docker-compose ps | grep -E "(kafka|zookeeper)" | while read line; do
         if echo "$line" | grep -q "Up"; then
@@ -101,8 +101,8 @@ echo ""
 echo "🐍 Python Services:"
 echo "------------------"
 check_process "python.*-m backend.app" "python.*backend/app.py" "Backend API"
-check_process "python.*-m kafka.consumer" "python.*kafka/consumer.py" "Sentiment Consumer"
-check_process "python.*-m kafka.producer" "python.*kafka/producer.py" "Reddit Producer"
+check_process "python.*-m data_pipeline.consumer" "python.*data_pipeline/consumer.py" "Sentiment Consumer"
+check_process "python.*-m data_pipeline.producer" "python.*data_pipeline/producer.py" "Reddit Producer"
 
 echo ""
 echo "🌐 Frontend Service:"

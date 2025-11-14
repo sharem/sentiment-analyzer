@@ -12,11 +12,11 @@ Reddit API → Producer → Kafka → Consumer → Backend API → Frontend Dash
 
 ```
 sentiment-analyzer/
-├── kafka/                      # Kafka pipeline components
+├── data_pipeline/              # Data pipeline components
 │   ├── producer.py             # Reddit comment producer
 │   ├── consumer.py             # Sentiment analysis consumer
 │   ├── docker-compose.yml     # Kafka & Zookeeper services
-│   └── README.md               # Kafka-specific documentation
+│   └── README.md               # Pipeline-specific documentation
 ├── backend/                    # Flask API server
 │   ├── app.py                  # Main API endpoints
 │   ├── data_service.py         # Data storage service
@@ -98,7 +98,7 @@ sentiment-analyzer/
 
 ## 🔧 Components
 
-### Kafka Pipeline (`kafka/`)
+### Data Pipeline (`data_pipeline/`)
 - **Producer**: Fetches Reddit comments from r/AskReddit and sends to Kafka
 - **Consumer**: Processes Kafka messages and performs sentiment analysis using TextBlob
 - **Infrastructure**: Docker-based Kafka and Zookeeper setup
@@ -202,16 +202,16 @@ curl http://localhost:5000/api/stats
 
 ```bash
 # Start Kafka infrastructure only
-cd kafka && docker-compose up -d
+cd data_pipeline && docker-compose up -d
 
 # Start backend only
 python -m backend.app
 
 # Start consumer only
-python -m kafka.consumer
+python -m data_pipeline.consumer
 
 # Start producer only
-python -m kafka.producer
+python -m data_pipeline.producer
 
 # Start frontend only
 cd frontend && npm run dev
@@ -244,9 +244,9 @@ watch -n 5 'curl -s http://localhost:5000/api/stats | jq'
 
 ## ⚙️ Configuration
 
-- **Reddit Subreddit**: Edit `kafka/producer.py` to change source subreddit
+- **Reddit Subreddit**: Edit `data_pipeline/producer.py` to change source subreddit
 - **Refresh Interval**: Modify frontend components for different update frequencies
-- **Sentiment Thresholds**: Adjust TextBlob polarity thresholds in `kafka/consumer.py`
+- **Sentiment Thresholds**: Adjust TextBlob polarity thresholds in `data_pipeline/consumer.py`
 - **Service Ports**: Modify port assignments in respective service files
 
 ## 🔄 Troubleshooting
@@ -291,7 +291,7 @@ watch -n 5 'curl -s http://localhost:5000/api/stats | jq'
 6. **Docker issues:**
    ```bash
    sudo service docker start
-   cd kafka && docker-compose logs
+   cd data_pipeline && docker-compose logs
    ```
 
 ### Quick Fixes
@@ -338,13 +338,13 @@ pip install -e ".[dev]"
 
 ```bash
 # Format code
-black backend/ kafka/
+black backend/ data_pipeline/
 
 # Lint code
-pylint backend/ kafka/
+pylint backend/ data_pipeline/
 
 # Type checking
-mypy backend/ kafka/
+mypy backend/ data_pipeline/
 ```
 
 ## 📝 License

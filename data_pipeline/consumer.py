@@ -22,8 +22,12 @@ NEGATIVE_THRESHOLD = -0.1
 def create_sentiment_service():
     """Create and return sentiment data service."""
     try:
-        storage_file = os.getenv("SENTIMENT_DATA_FILE", "/tmp/sentiment_data.json")
-        service = SentimentDataService(max_comments=100, storage_file=storage_file)
+        storage_file = os.getenv(
+            "SENTIMENT_DATA_FILE", "/tmp/sentiment_data.json"
+        )
+        service = SentimentDataService(
+            max_comments=100, storage_file=storage_file
+        )
         logger.info("Sentiment data service initialized")
         return service
     except Exception as e:
@@ -85,8 +89,9 @@ def main():
 
                 # Log to console for monitoring
                 sentiment_text = f"{sentiment} ({polarity:.2f})"
-                logger.info(f"Processed: {text[:100]}... | Sentiment: {sentiment_text}")
-
+                logger.info(
+                    f"Processed: {text[:100]}... | Sentiment: {sentiment_text}"
+                )
             except KeyError as e:
                 logger.error(f"Missing 'text' field in message: {e}")
                 continue
