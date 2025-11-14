@@ -15,8 +15,7 @@ load_dotenv()
 
 # Setup logging
 logging.basicConfig(
-    level=logging.INFO,
-    format='%(asctime)s - %(levelname)s - %(message)s'
+    level=logging.INFO, format="%(asctime)s - %(levelname)s - %(message)s"
 )
 logger = logging.getLogger(__name__)
 
@@ -42,10 +41,10 @@ def create_kafka_producer():
     """Create and return Kafka producer."""
     try:
         producer = KafkaProducer(
-            bootstrap_servers='localhost:9092',
-            value_serializer=lambda v: json.dumps(v).encode('utf-8'),
+            bootstrap_servers="localhost:9092",
+            value_serializer=lambda v: json.dumps(v).encode("utf-8"),
             request_timeout_ms=30000,
-            retries=3
+            retries=3,
         )
         logger.info("Kafka producer created successfully")
         return producer

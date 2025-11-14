@@ -6,6 +6,7 @@ build-backend = "setuptools.build_meta"
 name = "sentiment-analyzer"
 version = "0.1.0"
 description = "Real-time sentiment analysis of Reddit comments"
+readme = "README.md"
 requires-python = ">=3.10"
 dependencies = [
     "praw>=7.7.1",
@@ -19,13 +20,22 @@ dependencies = [
 
 [project.optional-dependencies]
 dev = [
-    "pylint>=3.0.0",
-    "black>=24.0.0",
-    "mypy>=1.8.0",
     "pytest>=8.4.2",
-    "pytest-cov>=7.0.0",
-    "pytest-mock>=3.12.0",
+    "pytest-cov>=3.0.0",
+    "pytest-mock>=3.10.0",
+    "black>=22.0.0",
+    "flake8>=6.0.0",
+    "mypy>=0.990",
 ]
+
+# Package discovery configuration
+[tool.setuptools]
+package-dir = {"" = "."}
+
+[tool.setuptools.packages.find]
+where = ["."]
+include = ["backend*", "data_pipeline*"]
+exclude = ["tests*", "docs*", "*/tests*", "*/docs*", "*.egg-info"]
 
 [tool.black]
 line-length = 88
@@ -37,24 +47,17 @@ warn_return_any = true
 warn_unused_configs = true
 disallow_untyped_defs = true
 
-[tool.pylint.messages_control]
-disable = ["C0330", "C0326"]
-
-[tool.pylint.format]
-max-line-length = "88"
-
-[tool.pytest.ini_options]
 # Pytest configuration for sentiment analyzer backend
-
+[tool.pytest.ini_options]
 # Test discovery
 testpaths = ["backend/tests"]
 python_files = "*_test.py"
 python_classes = "Test*"
 python_functions = "test_*"
-
 # Output options
 addopts = "-v --tb=short"
-
+# Add project root to Python path for imports
+pythonpath = ["."]
 # Test markers (for organizing tests)
 markers = [
     "unit: Unit tests",
@@ -63,6 +66,5 @@ markers = [
     "threading: Tests involving threading",
     "api: API endpoint tests",
 ]
-
 # Minimum version
 minversion = "8.0"

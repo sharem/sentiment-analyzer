@@ -6,65 +6,51 @@
 echo "🛑 Shutting Down Sentiment Analyzer Pipeline..."
 echo "==============================================="
 
-# Function to kill processes by name pattern
+# Function to kill processes matching a pattern
 kill_processes() {
     local pattern=$1
     local service_name=$2
     
-    echo "🔪 Stopping $service_name..."
-    pkill -f "$pattern" 2>/dev/null || true
-    sleep 2
-    
-    # Force kill if still running
-    pkill -9 -f "$pattern" 2>/dev/null || true
-    echo "   $service_name stopped"
+    pids=$(pgrep -f "$pattern")
+    if [ -n "$pids" ]; then
+        echo "Stopping $service_name (PIDs: $pids)..."
+        kill $pids 2>/dev/null || true
+        sleep 2
+        # Force kill if still running
+        pids=$(pgrep -f "$pattern")
+        if [ -n "$pids" ]; then
+            echo "  Force stopping $service_name..."
+            kill -9 $pids 2>/dev/null || true
+        fi
+        echo "  ✓ $service_name stopped"
+    else
+        echo "  ℹ️  $service_name not running"
+    fi
 }
 
-# 1. Stop Python services
-kill_processes "python.*kafka/producer.py" "Reddit Producer"
-kill_processes "python.*kafka/consumer.py" "Sentiment Consumer"
-kill_processes "python.*app.py" "Backend API"
+# 1. Stop Python services (using module paths now)
+kill_processes "python.*-m data_pipeline\.producer" "Reddit Producer"
+kill_processes "python.*-m data_pipeline\.consumer" "Sentiment Consumer"
+kill_processes "python.*-m backend\.app" "Backend API"
 
-# 2. Stop Frontend (Node.js)
-echo "🌐 Stopping Frontend..."
-if lsof -Pi :4321 -sTCP:LISTEN -t >/dev/null; then
-    kill $(lsof -Pi :4321 -sTCP:LISTEN -t) 2>/dev/null || true
-    echo "   Frontend stopped"
-else
-    echo "   Frontend was not running"
-fi
-
-# Also kill any npm processes
-pkill -f "npm run dev" 2>/dev/null || true
+# 2. Stop frontend
+echo ""
+kill_processes "node.*astro" "Frontend Dashboard"
 
 # 3. Stop Docker services
+echo ""
 echo "🐳 Stopping Docker services..."
-cd kafka 2>/dev/null || true
+cd data_pipeline 2>/dev/null || true
 docker-compose down --volumes --remove-orphans > /dev/null 2>&1 || true
 cd .. 2>/dev/null || true
-echo "   Kafka & Zookeeper stopped"
+echo "  ✓ Kafka & Zookeeper stopped"
 
-# 4. Clean up log files (optional)
-read -p "🗑️  Remove log files? (y/N): " -n 1 -r
-echo
-if [[ $REPLY =~ ^[Yy]$ ]]; then
-    rm -rf logs/
-    echo "   Log files removed"
-fi
-
-# 5. Clean up temporary data files
-if [ -f "/tmp/sentiment_data.json" ]; then
-    read -p "🗑️  Remove sentiment data cache? (y/N): " -n 1 -r
-    echo
-    if [[ $REPLY =~ ^[Yy]$ ]]; then
-        rm -f /tmp/sentiment_data.json
-        echo "   Sentiment data cache removed"
-    fi
-fi
+# 4. Clean up log files
+echo ""
+echo "🧹 Cleaning up..."
+rm -f logs/*.pid 2>/dev/null || true
+echo "  ✓ Cleanup complete"
 
 echo ""
-echo "✅ Sentiment Analyzer Pipeline Stopped Successfully!"
-echo "=================================================="
-echo ""
-echo "🔄 To start the pipeline again, run: ./startup.sh"
+echo "✅ All services stopped successfully!"
 echo ""

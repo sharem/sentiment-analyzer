@@ -9,9 +9,34 @@ echo "🚀 Starting Sentiment Analyzer Pipeline..."
 echo "=========================================="
 
 # Check if we're in the right directory
-if [ ! -f "kafka/docker-compose.yml" ]; then
+if [ ! -f "data_pipeline/docker-compose.yml" ]; then
     echo "❌ Error: Please run this script from the sentiment-analyzer project root"
     exit 1
+fi
+
+# Check if virtual environment is activated
+if [ -z "$VIRTUAL_ENV" ]; then
+    echo "⚠️  Warning: Virtual environment not detected"
+    echo "   Attempting to activate sentiment-analyzer venv..."
+    
+    if [ -f "sentiment-analyzer/bin/activate" ]; then
+        source sentiment-analyzer/bin/activate
+        echo "✅ Virtual environment activated"
+    else
+        echo "❌ Error: Virtual environment not found at sentiment-analyzer/bin/activate"
+        echo "   Please create it with: python -m venv sentiment-analyzer"
+        exit 1
+    fi
+fi
+
+# Verify package is installed
+if ! python -c "import backend.app" 2>/dev/null; then
+    echo "⚠️  Package not installed. Installing in editable mode..."
+    pip install -e . || {
+        echo "❌ Failed to install package"
+        exit 1
+    }
+    echo "✅ Package installed successfully"
 fi
 
 # Function to check if a service is running
@@ -23,7 +48,6 @@ check_service() {
 
     echo "⏳ Waiting for $service_name to be ready..."
     while [ $attempt -le $max_attempts ]; do
-        # Try both 127.0.0.1 and localhost for better compatibility
         if curl -s "http://127.0.0.1:$port" > /dev/null 2>&1 || \
            curl -s "http://localhost:$port" > /dev/null 2>&1; then
             echo "✅ $service_name is ready!"
@@ -40,45 +64,35 @@ check_service() {
 
 # Function to start a Python service in background
 start_python_service() {
-    local script_name=$1
+    local module_path=$1
     local service_name=$2
-    local log_file="logs/$(basename ${script_name%.py}).log"
+    local log_file="logs/$(basename ${module_path##*.}).log"
     
     echo "🐍 Starting $service_name..."
     mkdir -p logs
     
-    if [ "$script_name" = "app.py" ]; then
-        cd backend
-        nohup python $script_name > "../$log_file" 2>&1 &
-        local pid=$!
-        cd ..
-        echo "   $service_name started with PID $pid (logs: $log_file)"
-    else
-        nohup python $script_name > "$log_file" 2>&1 &
-        local pid=$!
-        echo "   $service_name started with PID $pid (logs: $log_file)"
-    fi
+    # Run as Python module to use proper imports
+    nohup python -m "$module_path" > "$log_file" 2>&1 &
+    local pid=$!
+    echo "   $service_name started with PID $pid (logs: $log_file)"
 }
 
 # 1. Start Docker services (Kafka + Zookeeper)
 echo "🐳 Starting Docker services..."
 
-# Check if Docker is running, start if needed
 if ! docker info > /dev/null 2>&1; then
     echo "   Starting Docker service..."
     sudo service docker start
     sleep 3
     
-    # Verify Docker started successfully
     if ! docker info > /dev/null 2>&1; then
         echo "❌ Failed to start Docker service"
         exit 1
     fi
 fi
 
-cd kafka
+cd data_pipeline
 
-# Clean up existing containers (allow failure only if containers don't exist)
 if docker-compose ps -q 2>/dev/null | grep -q .; then
     echo "   Stopping existing containers..."
     docker-compose down --volumes --remove-orphans
@@ -86,35 +100,32 @@ else
     echo "   No existing containers to stop"
 fi
 
-# Start Docker Compose (this should fail on real errors)
 echo "   Starting Kafka and Zookeeper..."
 docker-compose up -d
 
 cd ..
 
-# Wait for Kafka to be ready
 echo "⏳ Waiting for Kafka to be ready..."
 sleep 15
 
 # 2. Start Backend (Flask API)
-start_python_service "app.py" "Backend API"
+start_python_service "backend.app" "Backend API"
 sleep 5
 
-# Check if backend is ready (using || to handle failure explicitly)
 check_service "Backend API" "5000" || {
     echo "❌ Backend failed to start. Check logs/app.log"
     exit 1
 }
 
 # 3. Start Consumer
-start_python_service "kafka/consumer.py" "Sentiment Consumer"
+start_python_service "data_pipeline.consumer" "Sentiment Consumer"
 sleep 3
 
 # 4. Start Producer
-start_python_service "kafka/producer.py" "Reddit Producer"
+start_python_service "data_pipeline.producer" "Reddit Producer"
 sleep 3
 
-# 5. Start Frontend (if not already running)
+# 5. Start Frontend
 echo "🌐 Starting Frontend..."
 cd frontend
 if lsof -Pi :4321 -sTCP:LISTEN -t >/dev/null; then
@@ -126,12 +137,11 @@ else
     if lsof -Pi :4321 -sTCP:LISTEN -t >/dev/null; then
         echo "   Frontend started with PID $FRONTEND_PID (logs: logs/frontend.log)"
     else
-        echo "⚠️  Failed to start Frontend. Port 4321 may already be in use or there was an error. Check logs/frontend.log."
+        echo "⚠️  Failed to start Frontend. Check logs/frontend.log"
     fi
 fi
 cd ..
 
-# Wait for frontend to be ready (allow failure for frontend)
 sleep 10
 if ! check_service "Frontend" "4321"; then
     echo "⚠️  Frontend may not be ready yet, but continuing..."

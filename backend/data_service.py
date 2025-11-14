@@ -23,7 +23,7 @@ class SentimentDataService:
         """
         self._lock = threading.RLock()
         self._max_comments = max_comments
-        self._storage_file = storage_file or '/tmp/sentiment_data.json'
+        self._storage_file = storage_file or "/tmp/sentiment_data.json"
         self._recent_comments = deque(maxlen=max_comments)
         self._sentiment_counts = {"positive": 0, "neutral": 0, "negative": 0}
         self._last_file_mtime = None
@@ -53,9 +53,9 @@ class SentimentDataService:
         """Load data from persistent storage."""
         try:
             if os.path.exists(self._storage_file):
-                with open(self._storage_file, 'r') as f:
+                with open(self._storage_file, "r") as f:
                     data = json.load(f)
-                    comments = data.get('comments', [])
+                    comments = data.get("comments", [])
 
                     # Restore comments
                     self._recent_comments.clear()
@@ -77,10 +77,10 @@ class SentimentDataService:
         """Save data to persistent storage."""
         try:
             data = {
-                'comments': list(self._recent_comments),
-                'last_updated': datetime.now().isoformat()
+                "comments": list(self._recent_comments),
+                "last_updated": datetime.now().isoformat(),
             }
-            with open(self._storage_file, 'w') as f:
+            with open(self._storage_file, "w") as f:
                 json.dump(data, f, indent=2)
 
             # Update the modification time after saving
@@ -106,7 +106,7 @@ class SentimentDataService:
                 "text": text,
                 "sentiment": sentiment,
                 "polarity": polarity,
-                "timestamp": datetime.now().isoformat()
+                "timestamp": datetime.now().isoformat(),
             }
 
             # Update counts when old comment is removed
@@ -166,20 +166,22 @@ class SentimentDataService:
             total_comments = len(self._recent_comments)
             newest_ts = (
                 self._recent_comments[-1]["timestamp"]
-                if self._recent_comments else None
+                if self._recent_comments
+                else None
             )
             oldest_ts = (
                 self._recent_comments[0]["timestamp"]
-                if self._recent_comments else None
+                if self._recent_comments
+                else None
             )
             return {
                 "total_comments": total_comments,
                 "sentiment_counts": self._sentiment_counts.copy(),
                 "oldest_comment_timestamp": oldest_ts,
-                "newest_comment_timestamp": newest_ts
+                "newest_comment_timestamp": newest_ts,
             }
 
 
 # Global instance - uses /tmp which is auto-cleaned by OS
-_storage_file = os.getenv('SENTIMENT_DATA_FILE', '/tmp/sentiment_data.json')
+_storage_file = os.getenv("SENTIMENT_DATA_FILE", "/tmp/sentiment_data.json")
 sentiment_data_service = SentimentDataService(storage_file=_storage_file)

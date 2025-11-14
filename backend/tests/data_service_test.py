@@ -7,7 +7,7 @@ import time
 
 import pytest
 
-from data_service import SentimentDataService
+from backend.data_service import SentimentDataService
 
 
 @pytest.fixture
@@ -49,14 +49,13 @@ class TestInitialization:
         service = SentimentDataService(storage_file=temp_file)
         assert len(service.get_recent_comments()) == 0
         assert service.get_sentiment_counts() == {
-            'positive': 0, 'negative': 0, 'neutral': 0
+            "positive": 0,
+            "negative": 0,
+            "neutral": 0,
         }
 
     def test_custom_initialization(self, temp_file):
-        service = SentimentDataService(
-            max_comments=50,
-            storage_file=temp_file
-        )
+        service = SentimentDataService(max_comments=50, storage_file=temp_file)
         assert service._max_comments == 50
         assert len(service.get_recent_comments()) == 0
 
@@ -169,16 +168,10 @@ class TestPersistence:
     """Test persistence functionality."""
 
     def test_save_and_load_data(self, temp_file):
-        service1 = SentimentDataService(
-            max_comments=5,
-            storage_file=temp_file
-        )
+        service1 = SentimentDataService(max_comments=5, storage_file=temp_file)
         service1.add_comment("Persistent comment", "positive", 0.7)
 
-        service2 = SentimentDataService(
-            max_comments=5,
-            storage_file=temp_file
-        )
+        service2 = SentimentDataService(max_comments=5, storage_file=temp_file)
 
         comments = service2.get_recent_comments()
         assert len(comments) == 1
@@ -189,7 +182,7 @@ class TestPersistence:
         assert counts["positive"] == 1
 
     def test_corrupted_file_handling(self, temp_file):
-        with open(temp_file, 'w') as f:
+        with open(temp_file, "w") as f:
             f.write("invalid json content")
 
         service = SentimentDataService(storage_file=temp_file)
@@ -206,9 +199,7 @@ class TestThreadSafety:
         def add_comments(thread_id):
             for i in range(comments_per_thread):
                 service.add_comment(
-                    f"Thread {thread_id} Comment {i}",
-                    "positive",
-                    0.5
+                    f"Thread {thread_id} Comment {i}", "positive", 0.5
                 )
 
         threads = []

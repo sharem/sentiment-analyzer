@@ -1,6 +1,6 @@
-# Kafka Pipeline Components
+# Data Pipeline Components
 
-This directory contains the Kafka-based messaging components of the sentiment analyzer:
+This directory contains the data pipeline components of the sentiment analyzer:
 
 ## Files
 
@@ -25,15 +25,15 @@ If you need to run components individually:
 
 ```bash
 # Start Kafka infrastructure first
-cd kafka
+cd data_pipeline
 docker-compose up -d
 cd ..
 
 # Start producer (from project root, in separate terminal)
-python kafka/producer.py
+python -m data_pipeline.producer
 
 # Start consumer (from project root, in separate terminal)
-python kafka/consumer.py
+python -m data_pipeline.consumer
 ```
 
 ## Configuration

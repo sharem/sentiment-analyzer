@@ -43,7 +43,6 @@ check_api_status() {
     
     if curl -s http://localhost:5000/api/stats >/dev/null 2>&1; then
         echo "✅ Backend API is responding"
-        # Display stats if available
         stats=$(curl -s http://localhost:5000/api/stats 2>/dev/null)
         if [ -n "$stats" ]; then
             echo "   Stats: $stats"
@@ -53,10 +52,32 @@ check_api_status() {
     fi
 }
 
+# Check Python environment
+echo "🐍 Python Environment:"
+echo "--------------------"
+if [ -n "$VIRTUAL_ENV" ]; then
+    echo "✅ Virtual environment active: $VIRTUAL_ENV"
+    python_path=$(which python3)
+    echo "   Python: $python_path"
+else
+    echo "ℹ️  Using system Python"
+    python_path=$(which python3)
+    echo "   Python: $python_path"
+fi
+
+# Check if package is installed
+if python3 -c "import backend.app" 2>/dev/null; then
+    echo "✅ sentiment-analyzer package is installed"
+else
+    echo "❌ sentiment-analyzer package not found"
+    echo "   Run: pip install -e ."
+fi
+
 # Check Docker services
+echo ""
 echo "🐳 Docker Services:"
 echo "------------------"
-cd kafka 2>/dev/null || true
+cd data_pipeline 2>/dev/null || true
 if docker-compose ps | grep -q "Up"; then
     docker-compose ps | grep -E "(kafka|zookeeper)" | while read line; do
         if echo "$line" | grep -q "Up"; then
@@ -72,9 +93,9 @@ cd .. 2>/dev/null || true
 echo ""
 echo "🐍 Python Services:"
 echo "------------------"
-check_process "python.*app.py" "Backend API"
-check_process "python.*kafka/consumer.py" "Sentiment Consumer"
-check_process "python.*kafka/producer.py" "Reddit Producer"
+check_process "python.*-m backend\.app" "Backend API"
+check_process "python.*-m data_pipeline\.consumer" "Sentiment Consumer"
+check_process "python.*-m data_pipeline\.producer" "Reddit Producer"
 
 echo ""
 echo "🌐 Frontend Service:"

@@ -6,7 +6,8 @@ import os
 from dotenv import load_dotenv
 from flask import Flask, jsonify, request
 from flask_cors import CORS
-from data_service import sentiment_data_service
+
+from backend.data_service import sentiment_data_service
 
 # Load environment variables
 load_dotenv()
@@ -14,8 +15,8 @@ load_dotenv()
 app = Flask(__name__)
 
 # Security configurations
-app.config['SECRET_KEY'] = os.getenv('SECRET_KEY', os.urandom(24))
-app.config['DEBUG'] = os.getenv('FLASK_ENV') == 'development'
+app.config["SECRET_KEY"] = os.getenv("SECRET_KEY", os.urandom(24))
+app.config["DEBUG"] = os.getenv("FLASK_ENV") == "development"
 
 # Configure CORS more securely
 allowed_origins = os.getenv("CORS_ORIGINS", "").split(",")
@@ -41,19 +42,23 @@ def comments():
     """Endpoint to get recent comments with sentiment."""
     try:
         # Validate and parse limit parameter
-        limit_param = request.args.get('limit', '10')
+        limit_param = request.args.get("limit", "10")
         try:
             limit = int(limit_param)
             if limit < 1:
-                return jsonify(
-                    {"error": "Limit must be a positive integer"}
-                ), 400
+                return (
+                    jsonify({"error": "Limit must be a positive integer"}),
+                    400,
+                )
             # Cap at reasonable maximum to prevent abuse
             limit = min(limit, 100)
         except ValueError:
-            return jsonify(
-                {"error": "Invalid limit parameter: must be an integer"}
-            ), 400
+            return (
+                jsonify(
+                    {"error": "Invalid limit parameter: must be an integer"}
+                ),
+                400,
+            )
         return jsonify(sentiment_data_service.get_recent_comments(limit))
     except Exception as e:
         logger.exception("Error in comments endpoint: %s", str(e))
@@ -73,13 +78,13 @@ def stats():
 @app.after_request
 def security_headers(response):
     """Add security headers to all responses."""
-    response.headers['X-Content-Type-Options'] = 'nosniff'
-    response.headers['X-Frame-Options'] = 'DENY'
-    response.headers['X-XSS-Protection'] = '1; mode=block'
-    response.headers['Strict-Transport-Security'] = (
-        'max-age=31536000; includeSubDomains'
+    response.headers["X-Content-Type-Options"] = "nosniff"
+    response.headers["X-Frame-Options"] = "DENY"
+    response.headers["X-XSS-Protection"] = "1; mode=block"
+    response.headers["Strict-Transport-Security"] = (
+        "max-age=31536000; includeSubDomains"
     )
-    response.headers['Content-Security-Policy'] = "default-src 'self'"
+    response.headers["Content-Security-Policy"] = "default-src 'self'"
     return response
 
 
@@ -99,13 +104,13 @@ def internal_error(error):
 # Application entry point
 if __name__ == "__main__":
     # Configuration from environment variables with sensible defaults
-    port = int(os.getenv('PORT', '5000'))
-    debug = os.getenv('FLASK_ENV') == 'development'
+    port = int(os.getenv("PORT", "5000"))
+    debug = os.getenv("FLASK_ENV") == "development"
 
     # Use environment variable for host configuration
     # Default to localhost in development, 0.0.0.0 in production
     default_host = "127.0.0.1" if debug else "0.0.0.0"
-    host = os.getenv('FLASK_RUN_HOST', default_host)
+    host = os.getenv("FLASK_RUN_HOST", default_host)
 
     logger.info("Starting Flask app on %s:%s (debug=%s)", host, port, debug)
     app.run(debug=debug, port=port, host=host)

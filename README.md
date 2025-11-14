@@ -12,15 +12,14 @@ Reddit API → Producer → Kafka → Consumer → Backend API → Frontend Dash
 
 ```
 sentiment-analyzer/
-├── kafka/                      # Kafka pipeline components
+├── data_pipeline/              # Data pipeline components
 │   ├── producer.py             # Reddit comment producer
 │   ├── consumer.py             # Sentiment analysis consumer
 │   ├── docker-compose.yml     # Kafka & Zookeeper services
-│   └── README.md               # Kafka-specific documentation
+│   └── README.md               # Pipeline-specific documentation
 ├── backend/                    # Flask API server
 │   ├── app.py                  # Main API endpoints
 │   ├── data_service.py         # Data storage service
-│   ├── dummy_data.py           # Fallback data generator
 │   └── tests/                  # Backend test suite
 │       ├── __init__.py
 │       ├── app_test.py
@@ -50,28 +49,29 @@ sentiment-analyzer/
 
 ### Setup
 
-1. **Clone and setup environment:**
+1. **Clone the repository:**
    ```bash
    git clone https://github.com/your-username/sentiment-analyzer.git
    cd sentiment-analyzer
-   python -m venv sentiment-analyzer
-   source sentiment-analyzer/bin/activate  # On Windows: sentiment-analyzer\Scripts\activate
-   pip install -r requirements.txt
    ```
 
-2. **Configure Reddit API:**
+2. **Install dependencies:**
+   ```bash
+   # Install Python package
+   pip install -e .
+   
+   # Install frontend dependencies
+   cd frontend
+   npm install
+   cd ..
+   ```
+
+3. **Configure Reddit API:**
    ```bash
    # Create .env file with your Reddit credentials
    echo "REDDIT_CLIENT_ID=your_client_id" > .env
    echo "REDDIT_CLIENT_SECRET=your_client_secret" >> .env
    echo "REDDIT_USER_AGENT=sentiment-analyzer-bot" >> .env
-   ```
-
-3. **Install frontend dependencies:**
-   ```bash
-   cd frontend
-   npm install
-   cd ..
    ```
 
 ### Running the Application
@@ -98,7 +98,7 @@ sentiment-analyzer/
 
 ## 🔧 Components
 
-### Kafka Pipeline (`kafka/`)
+### Data Pipeline (`data_pipeline/`)
 - **Producer**: Fetches Reddit comments from r/AskReddit and sends to Kafka
 - **Consumer**: Processes Kafka messages and performs sentiment analysis using TextBlob
 - **Infrastructure**: Docker-based Kafka and Zookeeper setup
@@ -202,16 +202,16 @@ curl http://localhost:5000/api/stats
 
 ```bash
 # Start Kafka infrastructure only
-cd kafka && docker-compose up -d
+cd data_pipeline && docker-compose up -d
 
 # Start backend only
-cd backend && python app.py
+python -m backend.app
 
 # Start consumer only
-python kafka/consumer.py
+python -m data_pipeline.consumer
 
 # Start producer only
-python kafka/producer.py
+python -m data_pipeline.producer
 
 # Start frontend only
 cd frontend && npm run dev
@@ -244,34 +244,43 @@ watch -n 5 'curl -s http://localhost:5000/api/stats | jq'
 
 ## ⚙️ Configuration
 
-- **Reddit Subreddit**: Edit `kafka/producer.py` to change source subreddit
+- **Reddit Subreddit**: Edit `data_pipeline/producer.py` to change source subreddit
 - **Refresh Interval**: Modify frontend components for different update frequencies
-- **Sentiment Thresholds**: Adjust TextBlob polarity thresholds in `kafka/consumer.py`
+- **Sentiment Thresholds**: Adjust TextBlob polarity thresholds in `data_pipeline/consumer.py`
 - **Service Ports**: Modify port assignments in respective service files
 
 ## 🔄 Troubleshooting
 
 ### Common Issues
 
-1. **Scripts won't execute:**
+1. **Package not installed:**
+   ```bash
+   # Verify installation
+   python -c "import backend.app; print('OK')"
+   
+   # Reinstall if needed
+   pip install -e .
+   ```
+
+2. **Scripts won't execute:**
    ```bash
    chmod +x startup.sh shutdown.sh status.sh
    ```
 
-2. **Services won't start:**
+3. **Services won't start:**
    ```bash
    ./status.sh  # Check what's running
    sudo lsof -i :4321,5000,9092  # Check port conflicts
    ```
 
-3. **No Reddit data:**
+4. **No Reddit data:**
    ```bash
    # Check producer logs
    tail -f logs/producer.log
    # Verify API credentials in .env
    ```
 
-4. **Frontend not updating:**
+5. **Frontend not updating:**
    ```bash
    # Check backend API
    curl http://localhost:5000/api/stats
@@ -279,10 +288,10 @@ watch -n 5 'curl -s http://localhost:5000/api/stats | jq'
    tail -f logs/frontend.log
    ```
 
-5. **Docker issues:**
+6. **Docker issues:**
    ```bash
    sudo service docker start
-   cd kafka && docker-compose logs
+   cd data_pipeline && docker-compose logs
    ```
 
 ### Quick Fixes
@@ -297,10 +306,69 @@ watch -n 5 'curl -s http://localhost:5000/api/stats | jq'
 **Restart specific component:**
 ```bash
 # Example: Restart just the backend
-pkill -f "python.*app.py"
-cd backend && python app.py
+pkill -f "python.*-m backend\.app"
+python -m backend.app
+
+# Or restart consumer
+pkill -f "python.*-m data_pipeline\.consumer"
+python -m data_pipeline.consumer
+
+# Or restart producer
+pkill -f "python.*-m data_pipeline\.producer"
+python -m data_pipeline.producer
+```
+
+## 🧑‍💻 Development
+
+### Virtual Environment (Recommended)
+
+For development, use a virtual environment to isolate dependencies:
+
+```bash
+# Using venv (built-in)
+python -m venv sentiment-analyzer
+source sentiment-analyzer/bin/activate  # On Windows: sentiment-analyzer\Scripts\activate
+
+# Then install the package
+pip install -e ".[dev]"
+```
+
+**Other options:** [virtualenvwrapper](https://virtualenvwrapper.readthedocs.io/), [conda](https://docs.conda.io/), [pyenv](https://github.com/pyenv/pyenv)
+
+### Development Dependencies
+
+```bash
+# Install all dev dependencies including testing tools
+pip install -e ".[dev]"
+```
+
+### Code Quality
+
+```bash
+# Format code
+black backend/ data_pipeline/
+
+# Lint code
+flake8 backend/ data_pipeline/
+
+# Type checking
+mypy backend/ data_pipeline/
+
+# Run tests
+pytest
+
+# Run tests with coverage
+pytest --cov=backend --cov=data_pipeline
 ```
 
 ## 📝 License
 
 Apache License 2.0 - See [LICENSE](LICENSE) for details.
+
+---
+
+<div align="center">
+
+**Made with ❤️ by [sharem](https://github.com/sharem)**
+
+</div>
