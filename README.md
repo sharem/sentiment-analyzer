@@ -341,10 +341,16 @@ pip install -e ".[dev]"
 black backend/ data_pipeline/
 
 # Lint code
-pylint backend/ data_pipeline/
+flake8 backend/ data_pipeline/
 
 # Type checking
 mypy backend/ data_pipeline/
+
+# Run tests
+pytest
+
+# Run tests with coverage
+pytest --cov=backend --cov=data_pipeline
 ```
 
 ## 📝 License

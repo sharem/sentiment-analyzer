@@ -59,7 +59,7 @@ class SentimentDataService:
 
                     # Restore comments
                     self._recent_comments.clear()
-                    for comment in comments[-self._max_comments :]:
+                    for comment in comments[-self._max_comments:]:
                         self._recent_comments.append(comment)
 
                     # Recalculate sentiment counts
@@ -69,7 +69,9 @@ class SentimentDataService:
                 self._last_file_mtime = self._get_file_mtime()
         except (json.JSONDecodeError, FileNotFoundError, KeyError) as e:
             # Start with empty data if file is corrupted or doesn't exist
-            logger.warning(f"Could not load data from {self._storage_file}: {e}")
+            logger.warning(
+                f"Could not load data from {self._storage_file}: {e}"
+            )
 
     def _save_data(self) -> None:
         """Save data to persistent storage."""
@@ -95,7 +97,9 @@ class SentimentDataService:
             if sentiment in self._sentiment_counts:
                 self._sentiment_counts[sentiment] += 1
 
-    def add_comment(self, text: str, sentiment: str, polarity: float = 0.0) -> None:
+    def add_comment(
+        self, text: str, sentiment: str, polarity: float = 0.0
+    ) -> None:
         """Add a new comment with sentiment analysis."""
         with self._lock:
             comment = {
@@ -111,7 +115,9 @@ class SentimentDataService:
                 old_sentiment = old_comment.get("sentiment", "neutral")
                 if old_sentiment in self._sentiment_counts:
                     current_count = self._sentiment_counts[old_sentiment]
-                    self._sentiment_counts[old_sentiment] = max(0, current_count - 1)
+                    self._sentiment_counts[old_sentiment] = max(
+                        0, current_count - 1
+                    )
             self._recent_comments.append(comment)
 
             # Update counts for new comment
@@ -145,7 +151,9 @@ class SentimentDataService:
         """Clear all stored data."""
         with self._lock:
             self._recent_comments.clear()
-            self._sentiment_counts = {"positive": 0, "neutral": 0, "negative": 0}
+            self._sentiment_counts = {
+                "positive": 0, "neutral": 0, "negative": 0
+            }
             self._save_data()
 
     def get_stats(self) -> Dict:
@@ -162,7 +170,9 @@ class SentimentDataService:
                 else None
             )
             oldest_ts = (
-                self._recent_comments[0]["timestamp"] if self._recent_comments else None
+                self._recent_comments[0]["timestamp"]
+                if self._recent_comments
+                else None
             )
             return {
                 "total_comments": total_comments,
