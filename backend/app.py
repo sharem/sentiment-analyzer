@@ -51,8 +51,7 @@ def comments():
                     400,
                 )
             # Cap at reasonable maximum to prevent abuse
-            max_limit = 100
-            limit = min(limit, max_limit)
+            limit = min(limit, 100)
         except ValueError:
             return (
                 jsonify(
