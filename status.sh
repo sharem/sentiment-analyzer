@@ -20,14 +20,21 @@ check_port() {
     fi
 }
 
-# Function to check if a process is running
+# Function to check if a process is running (checks both module and legacy paths)
 check_process() {
     local pattern=$1
-    local service_name=$2
+    local legacy_pattern=$2
+    local service_name=$3
     
+    # Check for module-based execution
     if pgrep -f "$pattern" >/dev/null 2>&1; then
         local pid=$(pgrep -f "$pattern" | head -1)
         echo "✅ $service_name (PID $pid): RUNNING"
+        return 0
+    # Check for legacy direct execution
+    elif pgrep -f "$legacy_pattern" >/dev/null 2>&1; then
+        local pid=$(pgrep -f "$legacy_pattern" | head -1)
+        echo "✅ $service_name (PID $pid): RUNNING (legacy mode)"
         return 0
     else
         echo "❌ $service_name: NOT RUNNING"
@@ -43,7 +50,6 @@ check_api_status() {
     
     if curl -s http://localhost:5000/api/stats >/dev/null 2>&1; then
         echo "✅ Backend API is responding"
-        # Display stats if available
         stats=$(curl -s http://localhost:5000/api/stats 2>/dev/null)
         if [ -n "$stats" ]; then
             echo "   Stats: $stats"
@@ -53,7 +59,29 @@ check_api_status() {
     fi
 }
 
+# Check Python environment
+echo "🐍 Python Environment:"
+echo "--------------------"
+if [ -n "$VIRTUAL_ENV" ]; then
+    echo "✅ Virtual environment active: $VIRTUAL_ENV"
+    python_path=$(which python3)
+    echo "   Python: $python_path"
+else
+    echo "ℹ️  Using system Python"
+    python_path=$(which python3)
+    echo "   Python: $python_path"
+fi
+
+# Check if package is installed
+if python3 -c "import backend.app" 2>/dev/null; then
+    echo "✅ sentiment-analyzer package is installed"
+else
+    echo "❌ sentiment-analyzer package not found"
+    echo "   Run: pip install -e ."
+fi
+
 # Check Docker services
+echo ""
 echo "🐳 Docker Services:"
 echo "------------------"
 cd kafka 2>/dev/null || true
@@ -72,9 +100,9 @@ cd .. 2>/dev/null || true
 echo ""
 echo "🐍 Python Services:"
 echo "------------------"
-check_process "python.*app.py" "Backend API"
-check_process "python.*kafka/consumer.py" "Sentiment Consumer"
-check_process "python.*kafka/producer.py" "Reddit Producer"
+check_process "python.*-m backend.app" "python.*backend/app.py" "Backend API"
+check_process "python.*-m kafka.consumer" "python.*kafka/consumer.py" "Sentiment Consumer"
+check_process "python.*-m kafka.producer" "python.*kafka/producer.py" "Reddit Producer"
 
 echo ""
 echo "🌐 Frontend Service:"

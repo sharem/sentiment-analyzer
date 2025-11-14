@@ -1,159 +1,143 @@
 #!/bin/bash
 
-# Sentiment Analyzer Startup Script
-# This script starts all components of the sentiment analysis pipeline
+# Sentiment Analyzer Status Script
+# This script checks the status of all pipeline components
 
-set -e  # Exit on any error
+echo "📊 Sentiment Analyzer Pipeline Status"
+echo "====================================="
 
-echo "🚀 Starting Sentiment Analyzer Pipeline..."
-echo "=========================================="
-
-# Check if we're in the right directory
-if [ ! -f "kafka/docker-compose.yml" ]; then
-    echo "❌ Error: Please run this script from the sentiment-analyzer project root"
-    exit 1
-fi
-
-# Function to check if a service is running
-check_service() {
-    local service_name=$1
-    local port=$2
-    local max_attempts=30
-    local attempt=1
-
-    echo "⏳ Waiting for $service_name to be ready..."
-    while [ $attempt -le $max_attempts ]; do
-        # Try both 127.0.0.1 and localhost for better compatibility
-        if curl -s "http://127.0.0.1:$port" > /dev/null 2>&1 || \
-           curl -s "http://localhost:$port" > /dev/null 2>&1; then
-            echo "✅ $service_name is ready!"
-            return 0
-        fi
-        echo "   Attempt $attempt/$max_attempts - waiting..."
-        sleep 2
-        attempt=$((attempt + 1))
-    done
-    
-    echo "❌ $service_name failed to start after $max_attempts attempts"
-    return 1
-}
-
-# Function to start a Python service in background
-start_python_service() {
-    local script_name=$1
+# Function to check if a service is running on a port
+check_port() {
+    local port=$1
     local service_name=$2
-    local log_file="logs/$(basename ${script_name%.py}).log"
     
-    echo "🐍 Starting $service_name..."
-    mkdir -p logs
-    
-    if [ "$script_name" = "app.py" ]; then
-        cd backend
-        nohup python $script_name > "../$log_file" 2>&1 &
-        local pid=$!
-        cd ..
-        echo "   $service_name started with PID $pid (logs: $log_file)"
+    if lsof -Pi :$port -sTCP:LISTEN -t >/dev/null 2>&1; then
+        echo "✅ $service_name (port $port): RUNNING"
+        return 0
     else
-        nohup python $script_name > "$log_file" 2>&1 &
-        local pid=$!
-        echo "   $service_name started with PID $pid (logs: $log_file)"
+        echo "❌ $service_name (port $port): NOT RUNNING"
+        return 1
     fi
 }
 
-# 1. Start Docker services (Kafka + Zookeeper)
-echo "🐳 Starting Docker services..."
-
-# Check if Docker is running, start if needed
-if ! docker info > /dev/null 2>&1; then
-    echo "   Starting Docker service..."
-    sudo service docker start
-    sleep 3
+# Function to check if a process is running (checks both module and legacy paths)
+check_process() {
+    local pattern=$1
+    local legacy_pattern=$2
+    local service_name=$3
     
-    # Verify Docker started successfully
-    if ! docker info > /dev/null 2>&1; then
-        echo "❌ Failed to start Docker service"
-        exit 1
+    # Check for module-based execution
+    if pgrep -f "$pattern" >/dev/null 2>&1; then
+        local pid=$(pgrep -f "$pattern" | head -1)
+        echo "✅ $service_name (PID $pid): RUNNING [module]"
+        return 0
+    # Check for legacy direct execution
+    elif pgrep -f "$legacy_pattern" >/dev/null 2>&1; then
+        local pid=$(pgrep -f "$legacy_pattern" | head -1)
+        echo "✅ $service_name (PID $pid): RUNNING [legacy]"
+        return 0
+    else
+        echo "❌ $service_name: NOT RUNNING"
+        return 1
     fi
-fi
-
-cd kafka
-
-# Clean up existing containers (allow failure only if containers don't exist)
-if docker-compose ps -q 2>/dev/null | grep -q .; then
-    echo "   Stopping existing containers..."
-    docker-compose down --volumes --remove-orphans
-else
-    echo "   No existing containers to stop"
-fi
-
-# Start Docker Compose (this should fail on real errors)
-echo "   Starting Kafka and Zookeeper..."
-docker-compose up -d
-
-cd ..
-
-# Wait for Kafka to be ready
-echo "⏳ Waiting for Kafka to be ready..."
-sleep 15
-
-# 2. Start Backend (Flask API)
-start_python_service "app.py" "Backend API"
-sleep 5
-
-# Check if backend is ready (using || to handle failure explicitly)
-check_service "Backend API" "5000" || {
-    echo "❌ Backend failed to start. Check logs/app.log"
-    exit 1
 }
 
-# 3. Start Consumer
-start_python_service "kafka/consumer.py" "Sentiment Consumer"
-sleep 3
-
-# 4. Start Producer
-start_python_service "kafka/producer.py" "Reddit Producer"
-sleep 3
-
-# 5. Start Frontend (if not already running)
-echo "🌐 Starting Frontend..."
-cd frontend
-if lsof -Pi :4321 -sTCP:LISTEN -t >/dev/null; then
-    echo "   Frontend is already running on port 4321"
-else
-    nohup npm run dev > ../logs/frontend.log 2>&1 &
-    FRONTEND_PID=$!
-    sleep 2
-    if lsof -Pi :4321 -sTCP:LISTEN -t >/dev/null; then
-        echo "   Frontend started with PID $FRONTEND_PID (logs: logs/frontend.log)"
+# Function to get API status
+check_api_status() {
+    echo ""
+    echo "🔍 API Status:"
+    echo "-------------"
+    
+    if curl -s http://localhost:5000/api/stats >/dev/null 2>&1; then
+        echo "✅ Backend API is responding"
+        stats=$(curl -s http://localhost:5000/api/stats 2>/dev/null)
+        if [ -n "$stats" ]; then
+            echo "   Stats: $stats"
+        fi
     else
-        echo "⚠️  Failed to start Frontend. Port 4321 may already be in use or there was an error. Check logs/frontend.log."
+        echo "❌ Backend API not responding"
     fi
-fi
-cd ..
+}
 
-# Wait for frontend to be ready (allow failure for frontend)
-sleep 10
-if ! check_service "Frontend" "4321"; then
-    echo "⚠️  Frontend may not be ready yet, but continuing..."
+# Check virtual environment
+echo "🐍 Python Environment:"
+echo "--------------------"
+if [ -n "$VIRTUAL_ENV" ]; then
+    echo "✅ Virtual environment active: $VIRTUAL_ENV"
+else
+    echo "⚠️  No virtual environment detected"
+fi
+
+# Check if package is installed
+if python -c "import backend.app" 2>/dev/null; then
+    echo "✅ sentiment-analyzer package is installed"
+else
+    echo "❌ sentiment-analyzer package not found (run: pip install -e .)"
+fi
+
+# Check Docker services
+echo ""
+echo "🐳 Docker Services:"
+echo "------------------"
+cd kafka 2>/dev/null || true
+if docker-compose ps | grep -q "Up"; then
+    docker-compose ps | grep -E "(kafka|zookeeper)" | while read line; do
+        if echo "$line" | grep -q "Up"; then
+            service_name=$(echo "$line" | awk '{print $1}')
+            echo "✅ $service_name: RUNNING"
+        fi
+    done
+else
+    echo "❌ Kafka & Zookeeper: NOT RUNNING"
+fi
+cd .. 2>/dev/null || true
+
+echo ""
+echo "🐍 Python Services:"
+echo "------------------"
+check_process "python.*-m backend.app" "python.*backend/app.py" "Backend API"
+check_process "python.*-m kafka.consumer" "python.*kafka/consumer.py" "Sentiment Consumer"
+check_process "python.*-m kafka.producer" "python.*kafka/producer.py" "Reddit Producer"
+
+echo ""
+echo "🌐 Frontend Service:"
+echo "------------------"
+check_port "4321" "Frontend Dashboard"
+
+# Check API status if backend is running
+if curl -s http://localhost:5000/api/stats >/dev/null 2>&1; then
+    check_api_status
 fi
 
 echo ""
-echo "🎉 Sentiment Analyzer Pipeline Started Successfully!"
-echo "=================================================="
+echo "📁 Log Files:"
+echo "------------"
+if [ -d "logs" ]; then
+    for log_file in logs/*.log; do
+        if [ -f "$log_file" ]; then
+            size=$(du -h "$log_file" | cut -f1)
+            echo "   📄 $log_file ($size)"
+        fi
+    done
+else
+    echo "   📁 No log directory found"
+fi
+
 echo ""
-echo "📊 Services Running:"
-echo "   • Kafka & Zookeeper: http://localhost:9092"
-echo "   • Backend API:        http://127.0.0.1:5000"
-echo "   • Frontend Dashboard: http://localhost:4321"
+echo "💾 Data Storage:"
+echo "---------------"
+if [ -f "/tmp/sentiment_data.json" ]; then
+    size=$(du -h "/tmp/sentiment_data.json" | cut -f1)
+    echo "   💿 Sentiment data cache: $size"
+else
+    echo "   📭 No sentiment data cache found"
+fi
+
 echo ""
-echo "📝 Log Files:"
-echo "   • Backend:    logs/app.log"
-echo "   • Consumer:   logs/consumer.log"
-echo "   • Producer:   logs/producer.log"
-echo "   • Frontend:   logs/frontend.log"
-echo ""
-echo "🔍 Monitor the pipeline:"
-echo "   curl http://127.0.0.1:5000/api/stats"
-echo ""
-echo "🛑 To stop all services, run: ./shutdown.sh"
+echo "🔧 Quick Commands:"
+echo "-----------------"
+echo "   Start pipeline:  ./startup.sh"
+echo "   Stop pipeline:   ./shutdown.sh"
+echo "   View backend:    curl http://localhost:5000/api/stats"
+echo "   View frontend:   http://localhost:4321"
 echo ""

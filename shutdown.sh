@@ -20,10 +20,15 @@ kill_processes() {
     echo "   $service_name stopped"
 }
 
-# 1. Stop Python services
-kill_processes "python.*kafka/producer.py" "Reddit Producer"
-kill_processes "python.*kafka/consumer.py" "Sentiment Consumer"
-kill_processes "python.*app.py" "Backend API"
+# 1. Stop Python services (using module paths now)
+kill_processes "python.*-m kafka.producer" "Reddit Producer"
+kill_processes "python.*-m kafka.consumer" "Sentiment Consumer"
+kill_processes "python.*-m backend.app" "Backend API"
+
+# Also catch old-style direct script execution
+kill_processes "python.*kafka/producer.py" "Reddit Producer (legacy)"
+kill_processes "python.*kafka/consumer.py" "Sentiment Consumer (legacy)"
+kill_processes "python.*backend/app.py" "Backend API (legacy)"
 
 # 2. Stop Frontend (Node.js)
 echo "🌐 Stopping Frontend..."
@@ -34,7 +39,6 @@ else
     echo "   Frontend was not running"
 fi
 
-# Also kill any npm processes
 pkill -f "npm run dev" 2>/dev/null || true
 
 # 3. Stop Docker services
