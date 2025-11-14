@@ -306,8 +306,16 @@ watch -n 5 'curl -s http://localhost:5000/api/stats | jq'
 **Restart specific component:**
 ```bash
 # Example: Restart just the backend
-pkill -f "python.*backend.app"
+pkill -f "python.*-m backend\.app"
 python -m backend.app
+
+# Or restart consumer
+pkill -f "python.*-m data_pipeline\.consumer"
+python -m data_pipeline.consumer
+
+# Or restart producer
+pkill -f "python.*-m data_pipeline\.producer"
+python -m data_pipeline.producer
 ```
 
 ## 🧑‍💻 Development

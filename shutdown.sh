@@ -33,11 +33,6 @@ kill_processes "python.*-m data_pipeline\.producer" "Reddit Producer"
 kill_processes "python.*-m data_pipeline\.consumer" "Sentiment Consumer"
 kill_processes "python.*-m backend\.app" "Backend API"
 
-# Also catch old-style direct script execution
-kill_processes "python.*data_pipeline/producer\.py" "Reddit Producer (legacy)"
-kill_processes "python.*data_pipeline/consumer\.py" "Sentiment Consumer (legacy)"
-kill_processes "python.*backend/app\.py" "Backend API (legacy)"
-
 # 2. Stop frontend
 echo ""
 kill_processes "node.*astro" "Frontend Dashboard"

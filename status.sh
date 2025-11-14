@@ -20,21 +20,14 @@ check_port() {
     fi
 }
 
-# Function to check if a process is running (checks both module and legacy paths)
+# Function to check if a process is running
 check_process() {
     local pattern=$1
-    local legacy_pattern=$2
-    local service_name=$3
+    local service_name=$2
     
-    # Check for module-based execution
     if pgrep -f "$pattern" >/dev/null 2>&1; then
         local pid=$(pgrep -f "$pattern" | head -1)
         echo "✅ $service_name (PID $pid): RUNNING"
-        return 0
-    # Check for legacy direct execution
-    elif pgrep -f "$legacy_pattern" >/dev/null 2>&1; then
-        local pid=$(pgrep -f "$legacy_pattern" | head -1)
-        echo "✅ $service_name (PID $pid): RUNNING (legacy mode)"
         return 0
     else
         echo "❌ $service_name: NOT RUNNING"
@@ -100,9 +93,9 @@ cd .. 2>/dev/null || true
 echo ""
 echo "🐍 Python Services:"
 echo "------------------"
-check_process "python.*-m backend\.app" "python.*backend/app\.py" "Backend API"
-check_process "python.*-m data_pipeline\.consumer" "python.*data_pipeline/consumer\.py" "Sentiment Consumer"
-check_process "python.*-m data_pipeline\.producer" "python.*data_pipeline/producer\.py" "Reddit Producer"
+check_process "python.*-m backend\.app" "Backend API"
+check_process "python.*-m data_pipeline\.consumer" "Sentiment Consumer"
+check_process "python.*-m data_pipeline\.producer" "Reddit Producer"
 
 echo ""
 echo "🌐 Frontend Service:"
