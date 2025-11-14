@@ -351,4 +351,10 @@ mypy backend/ data_pipeline/
 
 Apache License 2.0 - See [LICENSE](LICENSE) for details.
 
-Made by sharem with
+---
+
+<div align="center">
+
+**Made with ❤️ by [sharem](https://github.com/sharem)**
+
+</div>
