@@ -100,9 +100,9 @@ cd .. 2>/dev/null || true
 echo ""
 echo "🐍 Python Services:"
 echo "------------------"
-check_process "python.*-m backend.app" "python.*backend/app.py" "Backend API"
-check_process "python.*-m data_pipeline.consumer" "python.*data_pipeline/consumer.py" "Sentiment Consumer"
-check_process "python.*-m data_pipeline.producer" "python.*data_pipeline/producer.py" "Reddit Producer"
+check_process "python.*-m backend\.app" "python.*backend/app\.py" "Backend API"
+check_process "python.*-m data_pipeline\.consumer" "python.*data_pipeline/consumer\.py" "Sentiment Consumer"
+check_process "python.*-m data_pipeline\.producer" "python.*data_pipeline/producer\.py" "Reddit Producer"
 
 echo ""
 echo "🌐 Frontend Service:"
