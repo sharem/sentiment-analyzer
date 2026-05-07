@@ -1,7 +1,10 @@
+import json
+import logging
+
 import pytest
 from kafka.errors import KafkaError
 
-from data_pipeline.consumer import create_kafka_consumer, main
+from data_pipeline.consumer import create_kafka_consumer, main, process_message
 
 
 KAFKA_CONSUMER_PATCH = "data_pipeline.consumer.KafkaConsumer"
@@ -123,3 +126,48 @@ class TestMain:
         main()
 
         mock_consumer.close.assert_called_once()
+
+
+class TestProcessMessage:
+    def test_logs_processed_event_on_success(self, mocker, caplog):
+        mock_msg = mocker.MagicMock()
+        mock_msg.value = {"text": "great product"}
+        mock_comment = mocker.MagicMock()
+        mock_comment.sentiment.value = "positive"
+        mock_comment.polarity = 0.8
+        mocker.patch(ANALYZE_PATCH, return_value=mock_comment)
+        mocker.patch(REPO_PATCH)
+
+        with caplog.at_level(logging.INFO):
+            process_message(mock_msg)
+
+        log_data = json.loads(caplog.messages[-1])
+        assert log_data["event"] == "message_processed"
+        assert log_data["sentiment"] == "positive"
+        assert log_data["polarity"] == 0.8
+        assert log_data["processing_time_ms"] >= 0
+
+    def test_logs_failed_event_on_error(self, mocker, caplog):
+        mock_msg = mocker.MagicMock()
+        mock_msg.value = {"text": "some text"}
+        mocker.patch(ANALYZE_PATCH, side_effect=Exception("NLP exploded"))
+        mocker.patch(REPO_PATCH)
+
+        with caplog.at_level(logging.ERROR):
+            process_message(mock_msg)
+
+        log_data = json.loads(caplog.messages[-1])
+        assert log_data["event"] == "message_failed"
+        assert "NLP exploded" in log_data["error"]
+        assert log_data["processing_time_ms"] >= 0
+
+    def test_logs_skipped_event_on_missing_text(self, mocker, caplog):
+        mock_msg = mocker.MagicMock()
+        mock_msg.value = {}
+
+        with caplog.at_level(logging.ERROR):
+            process_message(mock_msg)
+
+        log_data = json.loads(caplog.messages[-1])
+        assert log_data["event"] == "message_skipped"
+        assert log_data["reason"] == "missing_text_field"
