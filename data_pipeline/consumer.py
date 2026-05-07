@@ -42,6 +42,33 @@ def create_kafka_consumer(retries: int = 5):
     sys.exit(1)
 
 
+def process_message(message) -> None:
+    """Process a single Kafka message and persist the result."""
+    start = time.time()
+
+    try:
+        text = message.value["text"]
+    except KeyError:
+        logger.error(json.dumps({"event": "message_skipped", "reason": "missing_text_field"}))
+        return
+
+    try:
+        comment = analyze_sentiment(text)
+        comment_repository.add_comment(comment)
+        logger.info(json.dumps({
+            "event": "message_processed",
+            "sentiment": comment.sentiment.value,
+            "polarity": round(comment.polarity, 4),
+            "processing_time_ms": round((time.time() - start) * 1000, 2),
+        }))
+    except Exception as e:
+        logger.error(json.dumps({
+            "event": "message_failed",
+            "error": str(e),
+            "processing_time_ms": round((time.time() - start) * 1000, 2),
+        }))
+
+
 def main():
     """Main consumer loop."""
     consumer = create_kafka_consumer()
@@ -51,24 +78,7 @@ def main():
 
     try:
         for message in consumer:
-            try:
-                text = message.value["text"]
-
-                comment = analyze_sentiment(text)
-                comment_repository.add_comment(comment)
-
-                sentiment_text = (
-                    f"{comment.sentiment.value} ({comment.polarity:.2f})"
-                )
-                logger.info(
-                    f"Processed: {text[:100]}... | Sentiment: {sentiment_text}"
-                )
-            except KeyError as e:
-                logger.error(f"Missing 'text' field in message: {e}")
-                continue
-            except Exception as e:
-                logger.error(f"Error processing message: {e}")
-                continue
+            process_message(message)
 
     except KeyboardInterrupt:
         logger.info("Shutdown requested... exiting gracefully")
