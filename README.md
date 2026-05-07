@@ -36,8 +36,9 @@ sentiment-analyzer/
 ├── frontend/                           # Astro/React dashboard
 │   └── src/
 │       ├── components/
+│       │   ├── Dashboard.jsx           # Layout wrapper with single refresh control
 │       │   ├── SentimentChart.jsx      # Pie chart visualization
-│       │   └── RecentComments.jsx      # Recent comments display
+│       │   └── RecentComments.jsx      # Recent comments display with fade-in animation
 │       └── pages/index.astro
 ├── .github/workflows/
 │   └── lint-and-test.yml
@@ -113,9 +114,10 @@ sentiment-analyzer/
 - **Docker Compose** — Kafka + Zookeeper infrastructure
 
 ### Frontend (`frontend/`)
-- **Astro + React** — auto-refreshing dashboard (every 10 seconds)
+- **Astro + React** — full-viewport dashboard, auto-refreshes every 10 seconds
+- **Dashboard** — layout wrapper with a single "Refresh Now" button that updates both panels simultaneously
 - **SentimentChart** — interactive pie chart
-- **RecentComments** — live comment feed
+- **RecentComments** — live comment feed with staggered fade-in animation on refresh
 
 ## Development
 

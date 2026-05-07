@@ -1,12 +1,13 @@
 import { useEffect, useState, useCallback } from 'react';
 import './RecentComments.css';
 
-export default function RecentComments() {
+export default function RecentComments({ refreshKey = 0, onRefreshed }) {
   const [comments, setComments] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
   const [lastUpdated, setLastUpdated] = useState(null);
   const [isRefreshing, setIsRefreshing] = useState(false);
+  const [animKey, setAnimKey] = useState(0);
 
   const fetchComments = useCallback(async (isManual = false) => {
     try {
@@ -37,6 +38,7 @@ export default function RecentComments() {
       }));
 
       setComments(commentsWithIds);
+      setAnimKey(k => k + 1);
       setLastUpdated(new Date());
       setLoading(false);
       setError(null);
@@ -50,16 +52,16 @@ export default function RecentComments() {
   }, []);
 
   useEffect(() => {
-    // Initial fetch
     fetchComments(true);
-    
-    // Set up automatic refresh every 10 seconds
-    const interval = setInterval(() => {
-      fetchComments(false);
-    }, 10000);
-    
+    const interval = setInterval(() => { fetchComments(false); }, 10000);
     return () => clearInterval(interval);
   }, [fetchComments]);
+
+  useEffect(() => {
+    if (refreshKey > 0) {
+      fetchComments(true).finally(() => onRefreshed?.());
+    }
+  }, [refreshKey, fetchComments, onRefreshed]);
 
   const getSentimentClass = (sentiment) => {
     switch (sentiment?.toLowerCase()) {
@@ -151,27 +153,14 @@ export default function RecentComments() {
       <div className="recent-comments-header">
         <h3 className="recent-comments-title">
           Recent Comments
-          {isRefreshing && (
-            <span className="auto-refresh-indicator"> 🔄</span>
-          )}
+          {isRefreshing && <span className="auto-refresh-indicator"> 🔄</span>}
         </h3>
-        <div className="recent-comments-controls">
-          {lastUpdated && (
-            <span className="last-updated">
-              Updated: {lastUpdated.toLocaleTimeString()}
-            </span>
-          )}
-          <button 
-            onClick={() => fetchComments(true)}
-            disabled={isRefreshing}
-            className="recent-comments-refresh-button"
-          >
-            {isRefreshing ? 'Refreshing...' : 'Refresh Now'}
-          </button>
-        </div>
+        {lastUpdated && (
+          <span className="last-updated">Updated: {lastUpdated.toLocaleTimeString()}</span>
+        )}
       </div>
       
-      <div className="recent-comments-list">
+      <div key={animKey} className="recent-comments-list">
         {comments.map((comment) => (
           <div key={comment.id} className="comment-item">
             <div className="comment-content">
