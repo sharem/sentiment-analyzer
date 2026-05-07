@@ -1,44 +1,43 @@
-# Data Pipeline Components
+# Data Pipeline
 
-This directory contains the data pipeline components of the sentiment analyzer:
+Kafka-based pipeline that streams Reddit comments into the sentiment analyzer.
 
 ## Files
 
-- **`producer.py`** - Reddit comment producer that fetches comments and sends them to Kafka
-- **`consumer.py`** - Kafka consumer that processes messages and performs sentiment analysis
-- **`docker-compose.yml`** - Docker Compose configuration for Kafka and Zookeeper services
+- **`producer.py`** — fetches comments from r/AskReddit via PRAW and publishes them to the `reddit-comments` Kafka topic
+- **`consumer.py`** — reads from Kafka, calls `analyze_sentiment` from the backend domain, and persists each comment via the repository
+- **`docker-compose.yml`** — Kafka + Zookeeper infrastructure
 
 ## Usage
 
-The producer and consumer are automatically managed by the main startup scripts in the project root:
+The pipeline is managed by the root startup scripts:
 
 ```bash
-# From project root
-./startup.sh   # Starts all services including Kafka, producer, and consumer
-./shutdown.sh  # Stops all services
-./status.sh    # Shows status of all components
+./startup.sh    # starts Kafka, consumer, and producer
+./shutdown.sh   # stops everything
+./status.sh     # shows running services and log locations
 ```
 
 ## Manual Usage
 
-If you need to run components individually:
-
 ```bash
 # Start Kafka infrastructure first
-cd data_pipeline
-docker-compose up -d
-cd ..
+cd data_pipeline && docker-compose up -d && cd ..
 
-# Start producer (from project root, in separate terminal)
-python -m data_pipeline.producer
-
-# Start consumer (from project root, in separate terminal)
+# Run consumer (separate terminal)
 python -m data_pipeline.consumer
+
+# Run producer (separate terminal)
+python -m data_pipeline.producer
 ```
 
 ## Configuration
 
-- Producer fetches from r/AskReddit by default
-- Consumer processes messages and stores results in `/tmp/sentiment_data.json`
-- Kafka runs on `localhost:9092`
-- Zookeeper runs on `localhost:2181`
+| Setting | Environment variable | Default |
+|---|---|---|
+| Kafka brokers | `KAFKA_BOOTSTRAP_SERVERS` | `localhost:9092` |
+| Reddit client ID | `REDDIT_CLIENT_ID` | _(required)_ |
+| Reddit client secret | `REDDIT_CLIENT_SECRET` | _(required)_ |
+| Reddit user agent | `REDDIT_USER_AGENT` | _(required)_ |
+
+Sentiment thresholds (positive > 0.1, negative < -0.1) are defined in `backend/domain/sentiment_service.py`.

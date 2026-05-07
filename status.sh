@@ -66,7 +66,7 @@ else
 fi
 
 # Check if package is installed
-if python3 -c "import backend.app" 2>/dev/null; then
+if python3 -c "import backend.infrastructure.api.app" 2>/dev/null; then
     echo "✅ sentiment-analyzer package is installed"
 else
     echo "❌ sentiment-analyzer package not found"

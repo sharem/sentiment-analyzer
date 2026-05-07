@@ -3,11 +3,13 @@
 import logging
 import os
 
+from dataclasses import asdict
+
 from dotenv import load_dotenv
 from flask import Flask, jsonify, request
 from flask_cors import CORS
 
-from backend.data_service import sentiment_data_service
+from backend.infrastructure.repositories import comment_repository
 
 # Load environment variables
 load_dotenv()
@@ -31,7 +33,7 @@ logger = logging.getLogger(__name__)
 def sentiment_data():
     """Endpoint to get sentiment analysis counts."""
     try:
-        return jsonify(sentiment_data_service.get_sentiment_counts())
+        return jsonify(comment_repository.get_sentiment_counts())
     except Exception as e:
         logger.exception("Error in sentiment endpoint: %s", str(e))
         return jsonify({"error": "Internal server error"}), 500
@@ -59,7 +61,8 @@ def comments():
                 ),
                 400,
             )
-        return jsonify(sentiment_data_service.get_recent_comments(limit))
+        comments = comment_repository.get_recent_comments(limit)
+        return jsonify([asdict(c) for c in comments])
     except Exception as e:
         logger.exception("Error in comments endpoint: %s", str(e))
         return jsonify({"error": "Internal server error"}), 500
@@ -69,7 +72,7 @@ def comments():
 def stats():
     """Endpoint to get overall statistics."""
     try:
-        return jsonify(sentiment_data_service.get_stats())
+        return jsonify(comment_repository.get_stats())
     except Exception as e:
         logger.exception("Error in stats endpoint: %s", str(e))
         return jsonify({"error": "Internal server error"}), 500
