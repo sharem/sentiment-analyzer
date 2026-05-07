@@ -5,10 +5,10 @@ A real-time sentiment analysis pipeline that fetches Reddit comments, processes 
 ## Architecture
 
 ```
-Reddit API → Producer → Kafka → Consumer → SQLite → Flask API → Frontend Dashboard
+Reddit API → Producer → Kafka → Consumer → SQLite → FastAPI → Frontend Dashboard
 ```
 
-The backend tries to follow **Hexagonal Architecture (Ports & Adapters)** with **Domain-Driven Design** principles. The domain layer is isolated from infrastructure and can swap adapters (e.g. SQLite → PostgreSQL) without touching business logic.
+The backend follows **Hexagonal Architecture (Ports & Adapters)**. The domain layer is isolated from infrastructure and can swap adapters (e.g. SQLite → PostgreSQL) without touching business logic.
 
 ## Project Structure
 

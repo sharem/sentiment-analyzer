@@ -8,9 +8,10 @@ from dotenv import load_dotenv
 from fastapi import FastAPI, Query, Request
 from fastapi.exceptions import RequestValidationError
 from fastapi.middleware.cors import CORSMiddleware
-from fastapi.responses import JSONResponse
 from starlette.exceptions import HTTPException as StarletteHTTPException
 
+from backend.infrastructure.api import exception_handlers
+from backend.infrastructure.api.exception_handlers import HealthCheckError
 from backend.infrastructure.repositories import comment_repository
 
 load_dotenv()
@@ -28,6 +29,11 @@ app.add_middleware(
     allow_methods=["*"],
     allow_headers=["*"],
 )
+
+app.add_exception_handler(HealthCheckError, exception_handlers.health_check_error_handler)
+app.add_exception_handler(StarletteHTTPException, exception_handlers.log_http_exception)
+app.add_exception_handler(RequestValidationError, exception_handlers.log_validation_error)
+app.add_exception_handler(Exception, exception_handlers.handle_exception)
 
 
 @app.middleware("http")
@@ -57,8 +63,8 @@ def health():
         comment_repository.get_sentiment_counts()
         return {"status": "healthy"}
     except Exception as e:
-        logger.error("Health check failed: %s", str(e))
-        return JSONResponse({"status": "unhealthy", "error": str(e)}, status_code=503)
+        logger.exception("Health check failed: %s", str(e))
+        raise HealthCheckError(str(e))
 
 
 @app.get("/api/stats")
@@ -66,25 +72,9 @@ def stats():
     return comment_repository.get_stats()
 
 
-@app.exception_handler(RequestValidationError)
-async def validation_exception_handler(request: Request, exc: RequestValidationError):
-    return JSONResponse({"error": "Invalid request parameters"}, status_code=400)
-
-
-@app.exception_handler(StarletteHTTPException)
-async def http_exception_handler(request: Request, exc: StarletteHTTPException):
-    return JSONResponse({"error": exc.detail}, status_code=exc.status_code)
-
-
-@app.exception_handler(Exception)
-async def handle_exception(request: Request, exc: Exception):
-    logger.exception("Unhandled exception: %s", str(exc))
-    return JSONResponse({"error": "Internal server error"}, status_code=500)
-
-
 if __name__ == "__main__":
     import uvicorn
     port = int(os.getenv("PORT", "5000"))
-    debug = os.getenv("FLASK_ENV") == "development"
+    debug = os.getenv("ENV") == "development"
     host = "127.0.0.1" if debug else "0.0.0.0"
     uvicorn.run("backend.infrastructure.api.app:app", host=host, port=port, reload=debug)

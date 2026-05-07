@@ -9,7 +9,7 @@ class TestAppSetup:
     def test_404_returns_json_error(self, client):
         response = client.get("/nonexistent-endpoint")
         assert response.status_code == 404
-        assert "error" in response.json()
+        assert "detail" in response.json()
 
 
 class TestSecurityHeaders:

@@ -25,4 +25,4 @@ class TestSentimentEndpoint:
         mock.get_sentiment_counts.side_effect = ValueError("fail")
         response = client.get("/api/sentiment")
         assert response.status_code == 500
-        assert "error" in response.json()
+        assert "detail" in response.json()

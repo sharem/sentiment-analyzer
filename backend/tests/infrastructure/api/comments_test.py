@@ -41,29 +41,29 @@ class TestCommentsEndpoint:
         mock.get_recent_comments.side_effect = Exception("db error")
         response = client.get("/api/comments")
         assert response.status_code == 500
-        assert "error" in response.json()
+        assert "detail" in response.json()
 
 
 class TestCommentsInputValidation:
-    def test_invalid_limit_returns_400(self, client):
+    def test_invalid_limit_returns_422(self, client):
         response = client.get("/api/comments?limit=abc")
-        assert response.status_code == 400
-        assert "error" in response.json()
+        assert response.status_code == 422
+        assert "detail" in response.json()
 
-    def test_negative_limit_returns_400(self, client):
+    def test_negative_limit_returns_422(self, client):
         response = client.get("/api/comments?limit=-5")
-        assert response.status_code == 400
-        assert "error" in response.json()
+        assert response.status_code == 422
+        assert "detail" in response.json()
 
-    def test_zero_limit_returns_400(self, client):
+    def test_zero_limit_returns_422(self, client):
         response = client.get("/api/comments?limit=0")
-        assert response.status_code == 400
-        assert "error" in response.json()
+        assert response.status_code == 422
+        assert "detail" in response.json()
 
-    def test_limit_above_100_returns_400(self, client):
+    def test_limit_above_100_returns_422(self, client):
         response = client.get("/api/comments?limit=150")
-        assert response.status_code == 400
-        assert "error" in response.json()
+        assert response.status_code == 422
+        assert "detail" in response.json()
 
     def test_default_limit_is_10(self, client):
         response = client.get("/api/comments")

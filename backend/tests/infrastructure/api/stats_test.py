@@ -26,4 +26,4 @@ class TestStatsEndpoint:
         mock.get_stats.side_effect = IOError("fail")
         response = client.get("/api/stats")
         assert response.status_code == 500
-        assert "error" in response.json()
+        assert "detail" in response.json()

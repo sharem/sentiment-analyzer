@@ -26,4 +26,4 @@ class TestHealthEndpoint:
         mocker.patch(PATCH).get_sentiment_counts.side_effect = Exception("db down")
         data = client.get("/health").json()
         assert data["status"] == "unhealthy"
-        assert "error" in data
+        assert "detail" in data
