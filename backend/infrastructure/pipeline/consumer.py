@@ -9,7 +9,7 @@ from kafka.errors import KafkaError
 
 from backend.domain.comment import Comment
 from backend.domain.comment_repository import CommentRepository
-from backend.domain.sentiment_service import analyze_sentiment
+from backend.infrastructure.nlp.textblob_analyzer import analyze_sentiment
 from backend.infrastructure.dependencies import get_repository
 from backend.infrastructure.messaging.broker_factory import create_broker
 from backend.infrastructure.messaging.message_broker import MessageBroker

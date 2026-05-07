@@ -1,12 +1,14 @@
 import pytest
 
 from backend.domain.comment import Comment, Sentiment
-from backend.domain.sentiment_service import (
+from backend.infrastructure.nlp.textblob_analyzer import (
     NEGATIVE_THRESHOLD,
     POSITIVE_THRESHOLD,
     analyze_sentiment,
     classify_polarity,
 )
+
+TEXTBLOB_PATCH = "backend.infrastructure.nlp.textblob_analyzer.TextBlob"
 
 
 class TestClassifyPolarity:
@@ -44,16 +46,13 @@ class TestClassifyPolarity:
 
 class TestAnalyzeSentiment:
     def test_returns_comment(self):
-        comment = analyze_sentiment("hello world")
-        assert isinstance(comment, Comment)
+        assert isinstance(analyze_sentiment("hello world"), Comment)
 
     def test_text_preserved(self):
         assert analyze_sentiment("test text").text == "test text"
 
     def test_sentiment_matches_polarity(self, mocker):
-        mocker.patch(
-            "backend.domain.sentiment_service.TextBlob"
-        ).return_value.sentiment.polarity = 0.8
+        mocker.patch(TEXTBLOB_PATCH).return_value.sentiment.polarity = 0.8
         comment = analyze_sentiment("anything")
         assert comment.sentiment == Sentiment.POSITIVE
         assert comment.polarity == 0.8
