@@ -31,7 +31,7 @@ kill_processes() {
 # 1. Stop Python services (using module paths now)
 kill_processes "python.*-m data_pipeline\.producer" "Reddit Producer"
 kill_processes "python.*-m data_pipeline\.consumer" "Sentiment Consumer"
-kill_processes "python.*-m backend\.app" "Backend API"
+kill_processes "python.*-m backend\.infrastructure\.api\.app" "Backend API"
 
 # 2. Stop frontend
 echo ""

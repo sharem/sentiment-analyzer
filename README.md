@@ -21,7 +21,7 @@ sentiment-analyzer/
 │   │   └── sentiment_service.py        # Sentiment classification domain service
 │   ├── infrastructure/
 │   │   ├── api/
-│   │   │   └── app.py                  # Flask adapter (HTTP driving adapter)
+│   │   │   └── app.py                  # FastAPI adapter (HTTP driving adapter)
 │   │   └── repositories/
 │   │       └── sqlite_repository.py    # SQLite adapter (repository implementation)
 │   └── tests/
@@ -105,7 +105,7 @@ sentiment-analyzer/
 - **`sentiment_service`** — domain service: `classify_polarity` and `analyze_sentiment`
 
 ### Backend Infrastructure (`backend/infrastructure/`)
-- **Flask API** — HTTP adapter exposing `/api/sentiment`, `/api/comments`, `/api/stats`, `/health`
+- **FastAPI** — HTTP adapter exposing `/api/sentiment`, `/api/comments`, `/api/stats`, `/health`. Auto-generates OpenAPI docs at `/docs`.
 - **SQLiteCommentRepository** — repository adapter with circular buffer (100 comments default) and WAL mode
 
 ### Data Pipeline (`data_pipeline/`)
@@ -149,7 +149,7 @@ flake8 backend/ data_pipeline/
 # Kafka infrastructure
 cd data_pipeline && docker-compose up -d
 
-# Backend API
+# Backend API (starts uvicorn)
 python -m backend.infrastructure.api.app
 
 # Consumer

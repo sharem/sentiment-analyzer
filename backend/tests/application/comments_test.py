@@ -1,5 +1,3 @@
-import json
-
 from backend.domain.comment import Comment, Sentiment
 
 
@@ -10,12 +8,12 @@ class TestCommentsEndpoint:
     def test_returns_list(self, client):
         response = client.get("/api/comments")
         assert response.status_code == 200
-        assert isinstance(json.loads(response.data), list)
+        assert isinstance(response.json(), list)
 
     def test_limit_param(self, client):
         response = client.get("/api/comments?limit=2")
         assert response.status_code == 200
-        assert len(json.loads(response.data)) <= 2
+        assert len(response.json()) <= 2
 
     def test_returns_correct_comments(self, client, mocker):
         mock = mocker.patch(PATCH)
@@ -33,8 +31,7 @@ class TestCommentsEndpoint:
                 timestamp="2024-01-01T00:00:01",
             ),
         ]
-        response = client.get("/api/comments?limit=2")
-        data = json.loads(response.data)
+        data = client.get("/api/comments?limit=2").json()
         assert len(data) == 2
         assert data[0]["text"] == "Test comment 1"
         mock.get_recent_comments.assert_called_once_with(2)
@@ -44,31 +41,31 @@ class TestCommentsEndpoint:
         mock.get_recent_comments.side_effect = Exception("db error")
         response = client.get("/api/comments")
         assert response.status_code == 500
-        assert "error" in json.loads(response.data)
+        assert "error" in response.json()
 
 
 class TestCommentsInputValidation:
     def test_invalid_limit_returns_400(self, client):
         response = client.get("/api/comments?limit=abc")
         assert response.status_code == 400
-        assert "error" in json.loads(response.data)
+        assert "error" in response.json()
 
     def test_negative_limit_returns_400(self, client):
         response = client.get("/api/comments?limit=-5")
         assert response.status_code == 400
-        assert "error" in json.loads(response.data)
+        assert "error" in response.json()
 
     def test_zero_limit_returns_400(self, client):
         response = client.get("/api/comments?limit=0")
         assert response.status_code == 400
-        assert "error" in json.loads(response.data)
+        assert "error" in response.json()
 
-    def test_limit_capped_at_100(self, client):
+    def test_limit_above_100_returns_400(self, client):
         response = client.get("/api/comments?limit=150")
-        assert response.status_code == 200
-        assert len(json.loads(response.data)) <= 100
+        assert response.status_code == 400
+        assert "error" in response.json()
 
     def test_default_limit_is_10(self, client):
         response = client.get("/api/comments")
         assert response.status_code == 200
-        assert len(json.loads(response.data)) <= 10
+        assert len(response.json()) <= 10
