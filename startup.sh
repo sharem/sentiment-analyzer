@@ -77,14 +77,40 @@ start_python_service() {
     echo "   $service_name started with PID $pid (logs: $log_file)"
 }
 
-# 1. Start Docker services (Kafka + Zookeeper)
-echo "🐳 Starting Docker services..."
+# 1. Select message broker
+echo ""
+echo "Which message broker would you like to use?"
+echo "  1) Redis  — Redis Commander at http://localhost:8081  (default)"
+echo "  2) Kafka  — Kafka UI at http://localhost:8081"
+echo ""
+read -p "Enter choice [1/2, default: 1]: " broker_choice
+
+case $broker_choice in
+    2)
+        export BROKER=kafka
+        BROKER_PROFILE=kafka
+        BROKER_WAIT=15
+        BROKER_LABEL="Kafka"
+        ;;
+    *)
+        export BROKER=redis
+        BROKER_PROFILE=redis
+        BROKER_WAIT=5
+        BROKER_LABEL="Redis"
+        ;;
+esac
+
+echo "✅ Using $BROKER_LABEL"
+
+# 2. Start Docker services
+echo ""
+echo "🐳 Starting Docker services ($BROKER_LABEL)..."
 
 if ! docker info > /dev/null 2>&1; then
     echo "   Starting Docker service..."
     sudo service docker start
     sleep 3
-    
+
     if ! docker info > /dev/null 2>&1; then
         echo "❌ Failed to start Docker service"
         exit 1
@@ -98,13 +124,12 @@ else
     echo "   No existing containers to stop"
 fi
 
-echo "   Starting Kafka and Zookeeper..."
-docker-compose up -d
+docker-compose --profile $BROKER_PROFILE up -d
 
-echo "⏳ Waiting for Kafka to be ready..."
-sleep 15
+echo "⏳ Waiting for $BROKER_LABEL to be ready..."
+sleep $BROKER_WAIT
 
-# 2. Start Backend (FastAPI / Uvicorn)
+# 3. Start Backend (FastAPI / Uvicorn)
 start_python_service "backend.infrastructure.api.app" "Backend API"
 sleep 5
 
@@ -113,15 +138,15 @@ check_service "Backend API" "5000" "/health" || {
     exit 1
 }
 
-# 3. Start Consumer
+# 4. Start Consumer
 start_python_service "backend.infrastructure.pipeline.consumer" "Sentiment Consumer"
 sleep 3
 
-# 4. Start Producer
+# 5. Start Producer
 start_python_service "backend.infrastructure.pipeline.producer" "Reddit Producer"
 sleep 3
 
-# 5. Start Frontend
+# 6. Start Frontend
 echo "🌐 Starting Frontend..."
 cd frontend
 if lsof -Pi :4321 -sTCP:LISTEN -t >/dev/null; then
@@ -148,7 +173,7 @@ echo "🎉 Sentiment Analyzer Pipeline Started Successfully!"
 echo "=================================================="
 echo ""
 echo "📊 Services Running:"
-echo "   • Kafka & Zookeeper: http://localhost:9092"
+echo "   • $BROKER_LABEL broker:   http://localhost:8081  (UI)"
 echo "   • Backend API:        http://127.0.0.1:5000"
 echo "   • Frontend Dashboard: http://localhost:4321"
 echo ""

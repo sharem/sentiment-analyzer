@@ -2,6 +2,7 @@
 
 import json
 import logging
+import os
 from collections.abc import Iterator
 
 from backend.infrastructure.messaging.message_broker import MessageBroker
@@ -10,7 +11,11 @@ logger = logging.getLogger(__name__)
 
 
 class RedisBroker(MessageBroker):
-    def __init__(self, host: str = "localhost", port: int = 6379) -> None:
+    def __init__(
+        self,
+        host: str | None = None,
+        port: int | None = None,
+    ) -> None:
         try:
             import redis as redis_lib
         except ImportError:
@@ -18,7 +23,9 @@ class RedisBroker(MessageBroker):
                 "redis package is required for RedisBroker. "
                 "Install it with: pip install redis"
             )
-        self._redis = redis_lib.Redis(host=host, port=port)
+        _host = host or os.getenv("REDIS_HOST", "localhost")
+        _port = port or int(os.getenv("REDIS_PORT", "6379"))
+        self._redis = redis_lib.Redis(host=_host, port=_port)
 
     def publish(self, topic: str, message: dict) -> None:
         self._redis.publish(topic, json.dumps(message))

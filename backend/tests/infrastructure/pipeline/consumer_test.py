@@ -7,20 +7,15 @@ from kafka.errors import KafkaError
 from backend.infrastructure.pipeline.consumer import main, process_message
 
 
-ANALYZE_PATCH = "backend.infrastructure.pipeline.consumer.analyze_sentiment"
-REPO_PATCH = "backend.infrastructure.pipeline.consumer.comment_repository"
-
-
 class TestMain:
     def test_processes_message_and_stores_comment(self, mocker):
         mock_broker = mocker.MagicMock()
         mock_broker.consume.return_value = iter([{"text": "great product"}])
-
+        mock_repo = mocker.MagicMock()
         mock_comment = mocker.MagicMock()
-        mock_analyze = mocker.patch(ANALYZE_PATCH, return_value=mock_comment)
-        mock_repo = mocker.patch(REPO_PATCH)
+        mock_analyze = mocker.MagicMock(return_value=mock_comment)
 
-        main(broker=mock_broker)
+        main(broker=mock_broker, repo=mock_repo, analyze=mock_analyze)
 
         mock_analyze.assert_called_once_with("great product")
         mock_repo.add_comment.assert_called_once_with(mock_comment)
@@ -29,24 +24,20 @@ class TestMain:
     def test_skips_message_with_missing_text_field(self, mocker):
         mock_broker = mocker.MagicMock()
         mock_broker.consume.return_value = iter([{}])
-        mock_repo = mocker.patch(REPO_PATCH)
+        mock_repo = mocker.MagicMock()
 
-        main(broker=mock_broker)
+        main(broker=mock_broker, repo=mock_repo, analyze=mocker.MagicMock())
 
         mock_repo.add_comment.assert_not_called()
 
     def test_continues_after_processing_error(self, mocker):
         mock_broker = mocker.MagicMock()
         mock_broker.consume.return_value = iter([{"text": "crash text"}, {"text": "fine text"}])
-
+        mock_repo = mocker.MagicMock()
         mock_comment = mocker.MagicMock()
-        mocker.patch(
-            ANALYZE_PATCH,
-            side_effect=[Exception("NLP fail"), mock_comment],
-        )
-        mock_repo = mocker.patch(REPO_PATCH)
+        mock_analyze = mocker.MagicMock(side_effect=[Exception("NLP fail"), mock_comment])
 
-        main(broker=mock_broker)
+        main(broker=mock_broker, repo=mock_repo, analyze=mock_analyze)
 
         mock_repo.add_comment.assert_called_once_with(mock_comment)
 
@@ -54,7 +45,7 @@ class TestMain:
         mock_broker = mocker.MagicMock()
         mock_broker.consume.side_effect = KeyboardInterrupt
 
-        main(broker=mock_broker)
+        main(broker=mock_broker, repo=mocker.MagicMock(), analyze=mocker.MagicMock())
 
         mock_broker.close.assert_called_once()
 
@@ -62,7 +53,7 @@ class TestMain:
         mock_broker = mocker.MagicMock()
         mock_broker.consume.side_effect = KafkaError("dropped")
 
-        main(broker=mock_broker)
+        main(broker=mock_broker, repo=mocker.MagicMock(), analyze=mocker.MagicMock())
 
         mock_broker.close.assert_called_once()
 
@@ -70,7 +61,7 @@ class TestMain:
         mock_broker = mocker.MagicMock()
         mock_broker.consume.side_effect = RuntimeError("crash")
 
-        main(broker=mock_broker)
+        main(broker=mock_broker, repo=mocker.MagicMock(), analyze=mocker.MagicMock())
 
         mock_broker.close.assert_called_once()
 
@@ -80,12 +71,13 @@ class TestProcessMessage:
         mock_comment = mocker.MagicMock()
         mock_comment.sentiment.value = "positive"
         mock_comment.polarity = 0.8
-        mocker.patch(ANALYZE_PATCH, return_value=mock_comment)
-        mocker.patch(REPO_PATCH)
+        mock_analyze = mocker.MagicMock(return_value=mock_comment)
+        mock_repo = mocker.MagicMock()
 
         with caplog.at_level(logging.INFO):
-            process_message({"text": "great product"})
+            process_message({"text": "great product"}, repo=mock_repo, analyze=mock_analyze)
 
+        mock_repo.add_comment.assert_called_once_with(mock_comment)
         log_data = json.loads(caplog.messages[-1])
         assert log_data["event"] == "message_processed"
         assert log_data["sentiment"] == "positive"
@@ -93,11 +85,11 @@ class TestProcessMessage:
         assert log_data["processing_time_ms"] >= 0
 
     def test_logs_failed_event_on_error(self, mocker, caplog):
-        mocker.patch(ANALYZE_PATCH, side_effect=Exception("NLP exploded"))
-        mocker.patch(REPO_PATCH)
+        mock_analyze = mocker.MagicMock(side_effect=Exception("NLP exploded"))
+        mock_repo = mocker.MagicMock()
 
         with caplog.at_level(logging.ERROR):
-            process_message({"text": "some text"})
+            process_message({"text": "some text"}, repo=mock_repo, analyze=mock_analyze)
 
         log_data = json.loads(caplog.messages[-1])
         assert log_data["event"] == "message_failed"

@@ -1,16 +1,16 @@
 # Sentiment Analyzer
 
-A real-time sentiment analysis pipeline that fetches Reddit comments, processes them through Kafka, performs sentiment analysis, and displays results in a web dashboard.
+A real-time sentiment analysis pipeline that fetches Reddit comments, streams them through a message broker (Redis Pub/Sub or Kafka), performs sentiment analysis, and displays results in a web dashboard.
 
 ## Architecture
 
 ```
-Reddit API → Producer → Kafka → Consumer → SQLite → FastAPI → Frontend Dashboard
+Reddit API → Producer → Kafka or Redis Pub/Sub → Consumer → SQLite → FastAPI → Frontend Dashboard
 ```
 
 The backend follows **Hexagonal Architecture (Ports & Adapters)**. The domain layer is isolated from infrastructure and can swap adapters without touching business logic — e.g. SQLite → PostgreSQL, or Kafka → Redis Pub/Sub with a one-line change.
 
-> **Note:** Kafka is intentionally overengineered for this scale. It's kept because the `MessageBroker` port makes swapping to Redis a one-liner, which demonstrates the architecture works.
+> **Note:** Kafka is intentionally overengineered for this scale. Redis Pub/Sub is the default; Kafka is there if you want to mess around with it.
 
 ## Project Structure
 
@@ -28,8 +28,9 @@ sentiment-analyzer/
 │   │   │   └── schemas.py              # Pydantic response models
 │   │   ├── messaging/
 │   │   │   ├── message_broker.py       # MessageBroker ABC
+│   │   │   ├── broker_factory.py       # Instantiates broker from BROKER env var
 │   │   │   ├── kafka_broker.py         # Kafka adapter
-│   │   │   └── redis_broker.py         # Redis Pub/Sub adapter (swap-in replacement)
+│   │   │   └── redis_broker.py         # Redis Pub/Sub adapter
 │   │   ├── pipeline/
 │   │   │   ├── producer.py             # Reddit → broker entry point
 │   │   │   └── consumer.py             # broker → domain → repository entry point
@@ -42,7 +43,7 @@ sentiment-analyzer/
 │           ├── messaging/              # Broker adapter tests
 │           ├── pipeline/               # Producer/consumer entry point tests
 │           └── repositories/          # Repository integration tests
-├── docker-compose.yml                  # Kafka & Zookeeper services
+├── docker-compose.yml                  # Kafka/Zookeeper and Redis/Redis Commander (Docker Compose profiles)
 ├── frontend/                           # Astro/React dashboard
 │   └── src/
 │       ├── components/
@@ -101,9 +102,11 @@ sentiment-analyzer/
 ./startup.sh
 ```
 
+`startup.sh` prompts you to choose **Kafka** or **Redis** and starts the matching containers.
+
 - Frontend Dashboard: http://localhost:4321
 - Backend API: http://localhost:5000
-- API Stats: http://localhost:5000/api/stats
+- Broker UI (Kafka UI / Redis Commander): http://localhost:8081
 
 ```bash
 ./shutdown.sh   # Stop all services
@@ -122,21 +125,17 @@ sentiment-analyzer/
 - **FastAPI** — HTTP adapter exposing `/api/sentiment`, `/api/comments`, `/api/stats`, `/health`. Auto-generates OpenAPI docs at `/docs`.
 - **Pydantic schemas** — `CommentResponse`, `SentimentCountsResponse`, `StatsResponse`, `HealthResponse` define and validate all API response shapes.
 - **SQLiteCommentRepository** — repository adapter with circular buffer (100 comments default) and WAL mode
-- **MessageBroker** — ABC defining the publish/consume interface (lives alongside its implementations)
-- **KafkaBroker** — `MessageBroker` implementation; lazy-initialises producer/consumer with exponential-backoff retry on connect
-- **RedisBroker** — drop-in `MessageBroker` implementation using Redis Pub/Sub (requires `pip install redis`)
+- **MessageBroker** — ABC defining the publish/consume interface
+- **KafkaBroker** — `MessageBroker` implementation; lazy-initialises with exponential-backoff retry on connect
+- **RedisBroker** — `MessageBroker` implementation using Redis Pub/Sub
+- **`create_broker()`** — factory that reads the `BROKER` env var (`kafka` | `redis`) and returns the right adapter
 
 ### Pipeline (`backend/infrastructure/pipeline/`)
 - **Producer** — streams Reddit comments from r/AskReddit and publishes via `MessageBroker`
 - **Consumer** — consumes via `MessageBroker`, calls `analyze_sentiment` (domain service), persists via repository
-- Both accept an optional `broker: MessageBroker` parameter for dependency injection (defaults to `KafkaBroker`)
+- Both accept optional `broker: MessageBroker` and `repo: CommentRepository` parameters for dependency injection (defaults via `create_broker()` → Redis).
 
-Swapping Kafka for Redis is a one-line change:
-```python
-main(broker=RedisBroker())   # requires: pip install redis
-```
-
-**`docker-compose.yml`** at project root — Kafka + Zookeeper infrastructure.
+**`docker-compose.yml`** at project root — Kafka/Zookeeper and Redis/Redis Commander, separated by Docker Compose profiles (`--profile kafka` / `--profile redis`).
 
 ### Frontend (`frontend/`)
 - **Astro + React** — full-viewport dashboard, auto-refreshes every 10 seconds
@@ -173,7 +172,10 @@ flake8 backend/
 
 ```bash
 # Kafka infrastructure
-docker-compose up -d
+docker-compose --profile kafka up -d
+
+# Redis infrastructure
+docker-compose --profile redis up -d
 
 # Backend API (starts uvicorn)
 python -m backend.infrastructure.api.app
@@ -195,7 +197,10 @@ cd frontend && npm run dev
 | Sentiment thresholds | `backend/domain/sentiment_service.py` | ±0.1 polarity |
 | Circular buffer size | `SQLiteCommentRepository(max_comments=...)` | 100 |
 | Database path | `SENTIMENT_DB_PATH` env var | `sentiment.db` |
+| Active broker | `BROKER` env var | `redis` |
 | Kafka brokers | `KAFKA_BOOTSTRAP_SERVERS` env var | `localhost:9092` |
+| Redis host | `REDIS_HOST` env var | `localhost` |
+| Redis port | `REDIS_PORT` env var | `6379` |
 | API port | `PORT` env var | `5000` |
 | CORS origins | `CORS_ORIGINS` env var | _(none)_ |
 
@@ -218,16 +223,16 @@ python -c "import backend.domain; print('OK')"
 
 **Port conflicts:**
 ```bash
-sudo lsof -i :4321,5000,9092
+sudo lsof -i :4321,5000,6379,9092
 ```
 
 **No data from Reddit:**
 ```bash
 tail -f logs/producer.log   # Check Reddit API credentials
-tail -f logs/consumer.log   # Check Kafka connectivity
+tail -f logs/consumer.log   # Check broker connectivity
 ```
 
-**Docker/Kafka issues:**
+**Docker/broker issues:**
 ```bash
 docker-compose logs
 sudo service docker start

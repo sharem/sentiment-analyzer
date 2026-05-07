@@ -3,13 +3,16 @@
 import json
 import logging
 import time
+from collections.abc import Callable
 
 from kafka.errors import KafkaError
 
-from backend.infrastructure.messaging.message_broker import MessageBroker
+from backend.domain.comment import Comment
+from backend.domain.comment_repository import CommentRepository
 from backend.domain.sentiment_service import analyze_sentiment
-from backend.infrastructure.messaging import KafkaBroker
-from backend.infrastructure.repositories import comment_repository
+from backend.infrastructure.dependencies import get_repository
+from backend.infrastructure.messaging.broker_factory import create_broker
+from backend.infrastructure.messaging.message_broker import MessageBroker
 
 logging.basicConfig(
     level=logging.INFO,
@@ -18,7 +21,12 @@ logging.basicConfig(
 logger = logging.getLogger(__name__)
 
 
-def process_message(message: dict) -> None:
+def process_message(
+    message: dict,
+    repo: CommentRepository | None = None,
+    analyze: Callable[[str], Comment] = analyze_sentiment,
+) -> None:
+    _repo = repo or get_repository()
     start = time.time()
 
     try:
@@ -28,8 +36,8 @@ def process_message(message: dict) -> None:
         return
 
     try:
-        comment = analyze_sentiment(text)
-        comment_repository.add_comment(comment)
+        comment = analyze(text)
+        _repo.add_comment(comment)
         logger.info(json.dumps({
             "event": "message_processed",
             "sentiment": comment.sentiment.value,
@@ -44,16 +52,21 @@ def process_message(message: dict) -> None:
         }))
 
 
-def main(broker: MessageBroker | None = None) -> None:
+def main(
+    broker: MessageBroker | None = None,
+    repo: CommentRepository | None = None,
+    analyze: Callable[[str], Comment] = analyze_sentiment,
+) -> None:
     """Main consumer loop."""
-    broker = broker or KafkaBroker()
+    broker = broker or create_broker()
+    repo = repo or get_repository()
 
     logger.info("Starting sentiment analysis consumer...")
-    logger.info("Processing messages from Kafka topic 'reddit-comments'")
+    logger.info("Processing messages from topic 'reddit-comments'")
 
     try:
         for message in broker.consume("reddit-comments"):
-            process_message(message)
+            process_message(message, repo=repo, analyze=analyze)
     except KeyboardInterrupt:
         logger.info("Shutdown requested... exiting gracefully")
     except KafkaError as e:

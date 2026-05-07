@@ -77,15 +77,13 @@ fi
 echo ""
 echo "🐳 Docker Services:"
 echo "------------------"
-if docker-compose ps | grep -q "Up"; then
-    docker-compose ps | grep -E "(kafka|zookeeper)" | while read line; do
-        if echo "$line" | grep -q "Up"; then
-            service_name=$(echo "$line" | awk '{print $1}')
-            echo "✅ $service_name: RUNNING"
-        fi
+if docker-compose ps 2>/dev/null | grep -q "Up"; then
+    docker-compose ps | grep "Up" | while read line; do
+        service_name=$(echo "$line" | awk '{print $1}')
+        echo "✅ $service_name: RUNNING"
     done
 else
-    echo "❌ Kafka & Zookeeper: NOT RUNNING"
+    echo "❌ No broker containers running"
 fi
 
 echo ""

@@ -9,8 +9,8 @@ from dotenv import load_dotenv
 import praw
 from kafka.errors import KafkaError
 
+from backend.infrastructure.messaging.broker_factory import create_broker
 from backend.infrastructure.messaging.message_broker import MessageBroker
-from backend.infrastructure.messaging import KafkaBroker
 
 load_dotenv()
 
@@ -47,7 +47,7 @@ def create_reddit_client():
 def main(broker: MessageBroker | None = None) -> None:
     """Main producer loop."""
     reddit = create_reddit_client()
-    broker = broker or KafkaBroker()
+    broker = broker or create_broker()
 
     subreddit = reddit.subreddit("AskReddit")
     logger.info("Starting to stream comments from r/AskReddit...")
