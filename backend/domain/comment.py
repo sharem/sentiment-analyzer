@@ -1,4 +1,5 @@
 from dataclasses import dataclass
+from datetime import datetime
 from enum import Enum
 
 
@@ -13,4 +14,4 @@ class Comment:
     text: str
     sentiment: Sentiment
     polarity: float
-    timestamp: str  # ISO 8601
+    timestamp: datetime

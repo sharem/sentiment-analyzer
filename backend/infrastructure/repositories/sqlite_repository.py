@@ -1,22 +1,21 @@
-import sqlite3
-import os
 import logging
-from typing import Dict, List, Optional
+import os
+import sqlite3
+from datetime import datetime
+from typing import Any, Dict, List, Optional
 
-from backend.domain.comment_repository import CommentRepository
 from backend.domain.comment import Comment, Sentiment
+from backend.domain.comment_repository import CommentRepository
 
 logger = logging.getLogger(__name__)
-
-_DEFAULT_DB_PATH = os.getenv("SENTIMENT_DB_PATH", "sentiment.db")
 
 
 class SQLiteCommentRepository(CommentRepository):
     def __init__(
-        self, max_comments: int = 100, db_path: str = _DEFAULT_DB_PATH
-    ):
+        self, max_comments: int = 100, db_path: str | None = None
+    ) -> None:
         self._max_comments = max_comments
-        self._db_path = db_path
+        self._db_path = db_path or os.getenv("SENTIMENT_DB_PATH", "sentiment.db")
         self._init_db()
 
     def _get_connection(self) -> sqlite3.Connection:
@@ -57,7 +56,7 @@ class SQLiteCommentRepository(CommentRepository):
                     comment.text,
                     comment.sentiment.value,
                     comment.polarity,
-                    comment.timestamp,
+                    comment.timestamp.isoformat(),
                 ),
             )
             conn.execute("""
@@ -95,7 +94,7 @@ class SQLiteCommentRepository(CommentRepository):
                 text=row["text"],
                 sentiment=Sentiment(row["sentiment"]),
                 polarity=row["polarity"],
-                timestamp=row["timestamp"],
+                timestamp=datetime.fromisoformat(row["timestamp"]),
             )
             for row in rows
         ]
@@ -107,14 +106,12 @@ class SQLiteCommentRepository(CommentRepository):
                 FROM comments
                 GROUP BY sentiment
             """).fetchall()
-        counts: Dict[str, int] = {
-            "positive": 0, "neutral": 0, "negative": 0
-        }
+        counts: Dict[str, int] = {s.value: 0 for s in Sentiment}
         for row in rows:
             counts[row["sentiment"]] = row["count"]
         return counts
 
-    def get_stats(self) -> Dict:
+    def get_stats(self) -> Dict[str, Any]:
         with self._get_connection() as conn:
             row = conn.execute("""
                 SELECT COUNT(*) as total,
@@ -128,19 +125,17 @@ class SQLiteCommentRepository(CommentRepository):
                 GROUP BY sentiment
             """).fetchall()
 
-        counts: Dict[str, int] = {
-            "positive": 0, "neutral": 0, "negative": 0
-        }
+        counts: Dict[str, int] = {s.value: 0 for s in Sentiment}
         for r in count_rows:
             counts[r["sentiment"]] = r["count"]
 
         return {
             "total_comments": row["total"],
-            "oldest_comment_timestamp": row["oldest"],
-            "newest_comment_timestamp": row["newest"],
+            "oldest_comment_timestamp": (
+                datetime.fromisoformat(row["oldest"]) if row["oldest"] else None
+            ),
+            "newest_comment_timestamp": (
+                datetime.fromisoformat(row["newest"]) if row["newest"] else None
+            ),
             "sentiment_counts": counts,
         }
-
-    def clear_data(self) -> None:
-        with self._get_connection() as conn:
-            conn.execute("DELETE FROM comments")

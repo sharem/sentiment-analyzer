@@ -108,7 +108,7 @@ cd ..
 echo "⏳ Waiting for Kafka to be ready..."
 sleep 15
 
-# 2. Start Backend (Flask API)
+# 2. Start Backend (FastAPI / Uvicorn)
 start_python_service "backend.infrastructure.api.app" "Backend API"
 sleep 5
 

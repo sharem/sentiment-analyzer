@@ -5,10 +5,12 @@ A real-time sentiment analysis pipeline that fetches Reddit comments, processes 
 ## Architecture
 
 ```
-Reddit API → Producer → Kafka → Consumer → SQLite → Flask API → Frontend Dashboard
+Reddit API → Producer → Kafka → Consumer → SQLite → FastAPI → Frontend Dashboard
 ```
 
-The backend tries to follow **Hexagonal Architecture (Ports & Adapters)** with **Domain-Driven Design** principles. The domain layer is isolated from infrastructure and can swap adapters (e.g. SQLite → PostgreSQL) without touching business logic.
+The backend follows **Hexagonal Architecture (Ports & Adapters)**. The domain layer is isolated from infrastructure and can swap adapters (e.g. SQLite → PostgreSQL) without touching business logic.
+
+> **Note:** Kafka is intentionally overengineered for this scale. I just wanted to mess around with it.
 
 ## Project Structure
 
@@ -21,13 +23,16 @@ sentiment-analyzer/
 │   │   └── sentiment_service.py        # Sentiment classification domain service
 │   ├── infrastructure/
 │   │   ├── api/
-│   │   │   └── app.py                  # Flask adapter (HTTP driving adapter)
+│   │   │   ├── app.py                  # FastAPI adapter — routes and middleware
+│   │   │   ├── exception_handlers.py   # Centralised exception handlers
+│   │   │   └── schemas.py              # Pydantic response models
 │   │   └── repositories/
 │   │       └── sqlite_repository.py    # SQLite adapter (repository implementation)
 │   └── tests/
-│       ├── application/                # API endpoint tests
 │       ├── domain/                     # Domain logic tests
-│       └── infrastructure/             # Repository integration tests
+│       └── infrastructure/
+│           ├── api/                    # API endpoint tests
+│           └── repositories/          # Repository integration tests
 ├── data_pipeline/
 │   ├── producer.py                     # Reddit → Kafka (primary adapter)
 │   ├── consumer.py                     # Kafka → domain → repository (primary adapter)
@@ -105,7 +110,8 @@ sentiment-analyzer/
 - **`sentiment_service`** — domain service: `classify_polarity` and `analyze_sentiment`
 
 ### Backend Infrastructure (`backend/infrastructure/`)
-- **Flask API** — HTTP adapter exposing `/api/sentiment`, `/api/comments`, `/api/stats`, `/health`
+- **FastAPI** — HTTP adapter exposing `/api/sentiment`, `/api/comments`, `/api/stats`, `/health`. Auto-generates OpenAPI docs at `/docs`.
+- **Pydantic schemas** — `CommentResponse`, `SentimentCountsResponse`, `StatsResponse`, `HealthResponse` define and validate all API response shapes.
 - **SQLiteCommentRepository** — repository adapter with circular buffer (100 comments default) and WAL mode
 
 ### Data Pipeline (`data_pipeline/`)
@@ -129,8 +135,8 @@ pytest
 
 # Specific layers
 pytest backend/tests/domain/
-pytest backend/tests/application/
-pytest backend/tests/infrastructure/
+pytest backend/tests/infrastructure/api/
+pytest backend/tests/infrastructure/repositories/
 pytest data_pipeline/tests/
 
 # Verbose
@@ -149,7 +155,7 @@ flake8 backend/ data_pipeline/
 # Kafka infrastructure
 cd data_pipeline && docker-compose up -d
 
-# Backend API
+# Backend API (starts uvicorn)
 python -m backend.infrastructure.api.app
 
 # Consumer

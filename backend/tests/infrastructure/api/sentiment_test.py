@@ -1,6 +1,3 @@
-import json
-
-
 PATCH = "backend.infrastructure.api.app.comment_repository"
 
 
@@ -8,8 +5,8 @@ class TestSentimentEndpoint:
     def test_returns_sentiment_counts(self, client):
         response = client.get("/api/sentiment")
         assert response.status_code == 200
-        assert response.content_type == "application/json"
-        data = json.loads(response.data)
+        assert "application/json" in response.headers["content-type"]
+        data = response.json()
         assert "positive" in data
         assert "negative" in data
         assert "neutral" in data
@@ -19,8 +16,7 @@ class TestSentimentEndpoint:
         mock.get_sentiment_counts.return_value = {
             "positive": 15, "negative": 8, "neutral": 12
         }
-        response = client.get("/api/sentiment")
-        data = json.loads(response.data)
+        data = client.get("/api/sentiment").json()
         assert data["positive"] == 15
         mock.get_sentiment_counts.assert_called_once()
 
@@ -29,4 +25,4 @@ class TestSentimentEndpoint:
         mock.get_sentiment_counts.side_effect = ValueError("fail")
         response = client.get("/api/sentiment")
         assert response.status_code == 500
-        assert "error" in json.loads(response.data)
+        assert "detail" in response.json()

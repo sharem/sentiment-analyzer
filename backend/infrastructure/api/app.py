@@ -1,130 +1,87 @@
-"""Flask application to serve sentiment analysis data."""
+"""FastAPI application to serve sentiment analysis data."""
 
 import logging
 import os
-
-from dataclasses import asdict
+from typing import Any
 
 from dotenv import load_dotenv
-from flask import Flask, jsonify, request
-from flask_cors import CORS
+from fastapi import FastAPI, Query, Request
+from fastapi.exceptions import RequestValidationError
+from fastapi.middleware.cors import CORSMiddleware
+from starlette.exceptions import HTTPException as StarletteHTTPException
 
+from backend.domain.comment import Comment
+from backend.infrastructure.api import exception_handlers
+from backend.infrastructure.api.exception_handlers import HealthCheckError
+from backend.infrastructure.api.schemas import (
+    CommentResponse,
+    HealthResponse,
+    SentimentCountsResponse,
+    StatsResponse,
+)
 from backend.infrastructure.repositories import comment_repository
 
-# Load environment variables
 load_dotenv()
-
-app = Flask(__name__)
-
-# Security configurations
-app.config["SECRET_KEY"] = os.getenv("SECRET_KEY", os.urandom(24))
-app.config["DEBUG"] = os.getenv("FLASK_ENV") == "development"
-
-# Configure CORS more securely
-allowed_origins = os.getenv("CORS_ORIGINS", "").split(",")
-CORS(app, origins=allowed_origins, supports_credentials=True)
 
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
 
+app = FastAPI()
 
-# Routes
-@app.route("/api/sentiment")
-def sentiment_data():
-    """Endpoint to get sentiment analysis counts."""
-    try:
-        return jsonify(comment_repository.get_sentiment_counts())
-    except Exception as e:
-        logger.exception("Error in sentiment endpoint: %s", str(e))
-        return jsonify({"error": "Internal server error"}), 500
+allowed_origins = os.getenv("CORS_ORIGINS", "http://localhost:4321").split(",")
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=allowed_origins,
+    allow_credentials=True,
+    allow_methods=["*"],
+    allow_headers=["*"],
+)
 
-
-@app.route("/api/comments")
-def comments():
-    """Endpoint to get recent comments with sentiment."""
-    try:
-        # Validate and parse limit parameter
-        limit_param = request.args.get("limit", "10")
-        try:
-            limit = int(limit_param)
-            if limit < 1:
-                return (
-                    jsonify({"error": "Limit must be a positive integer"}),
-                    400,
-                )
-            # Cap at reasonable maximum to prevent abuse
-            limit = min(limit, 100)
-        except ValueError:
-            return (
-                jsonify(
-                    {"error": "Invalid limit parameter: must be an integer"}
-                ),
-                400,
-            )
-        comments = comment_repository.get_recent_comments(limit)
-        return jsonify([asdict(c) for c in comments])
-    except Exception as e:
-        logger.exception("Error in comments endpoint: %s", str(e))
-        return jsonify({"error": "Internal server error"}), 500
+app.add_exception_handler(HealthCheckError, exception_handlers.health_check_error_handler)
+app.add_exception_handler(StarletteHTTPException, exception_handlers.log_http_exception)
+app.add_exception_handler(RequestValidationError, exception_handlers.log_validation_error)
+app.add_exception_handler(Exception, exception_handlers.handle_exception)
 
 
-@app.route("/health")
-def health():
-    """Health check for load balancer / monitoring."""
-    try:
-        comment_repository.get_sentiment_counts()
-        return jsonify({"status": "healthy"}), 200
-    except Exception as e:
-        logger.error("Health check failed: %s", str(e))
-        return jsonify({"status": "unhealthy", "error": str(e)}), 503
-
-
-@app.route("/api/stats")
-def stats():
-    """Endpoint to get overall statistics."""
-    try:
-        return jsonify(comment_repository.get_stats())
-    except Exception as e:
-        logger.exception("Error in stats endpoint: %s", str(e))
-        return jsonify({"error": "Internal server error"}), 500
-
-
-@app.after_request
-def security_headers(response):
-    """Add security headers to all responses."""
+@app.middleware("http")
+async def security_headers(request: Request, call_next) -> Any:
+    response = await call_next(request)
     response.headers["X-Content-Type-Options"] = "nosniff"
     response.headers["X-Frame-Options"] = "DENY"
     response.headers["X-XSS-Protection"] = "1; mode=block"
-    response.headers["Strict-Transport-Security"] = (
-        "max-age=31536000; includeSubDomains"
-    )
+    response.headers["Strict-Transport-Security"] = "max-age=31536000; includeSubDomains"
     response.headers["Content-Security-Policy"] = "default-src 'self'"
     return response
 
 
-@app.errorhandler(404)
-def not_found(_error):
-    """Handle 404 Not Found errors."""
-    return jsonify({"error": "Not found"}), 404
+@app.get("/api/sentiment", response_model=SentimentCountsResponse)
+def sentiment_data() -> dict[str, int]:
+    return comment_repository.get_sentiment_counts()
 
 
-@app.errorhandler(500)
-def internal_error(error):
-    """Handle 500 Internal Server errors."""
-    logger.exception("Internal error: %s", str(error))
-    return jsonify({"error": "Internal server error"}), 500
+@app.get("/api/comments", response_model=list[CommentResponse])
+def comments(limit: int = Query(default=10, ge=1, le=100)) -> list[Comment]:
+    return comment_repository.get_recent_comments(limit)
 
 
-# Application entry point
+@app.get("/health", response_model=HealthResponse)
+def health() -> HealthResponse:
+    try:
+        comment_repository.get_sentiment_counts()
+        return HealthResponse(status="healthy")
+    except Exception as e:
+        logger.exception("Health check failed: %s", str(e))
+        raise HealthCheckError(str(e))
+
+
+@app.get("/api/stats", response_model=StatsResponse)
+def stats() -> dict[str, Any]:
+    return comment_repository.get_stats()
+
+
 if __name__ == "__main__":
-    # Configuration from environment variables with sensible defaults
+    import uvicorn
     port = int(os.getenv("PORT", "5000"))
-    debug = os.getenv("FLASK_ENV") == "development"
-
-    # Use environment variable for host configuration
-    # Default to localhost in development, 0.0.0.0 in production
-    default_host = "127.0.0.1" if debug else "0.0.0.0"
-    host = os.getenv("FLASK_RUN_HOST", default_host)
-
-    logger.info("Starting Flask app on %s:%s (debug=%s)", host, port, debug)
-    app.run(debug=debug, port=port, host=host)
+    debug = os.getenv("ENV") == "development"
+    host = "127.0.0.1" if debug else "0.0.0.0"
+    uvicorn.run("backend.infrastructure.api.app:app", host=host, port=port, reload=debug)

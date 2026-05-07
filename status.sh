@@ -41,7 +41,7 @@ check_api_status() {
     echo "🔍 API Status:"
     echo "-------------"
     
-    if curl -s http://localhost:5000/api/stats >/dev/null 2>&1; then
+    if curl -s http://localhost:5000/health >/dev/null 2>&1; then
         echo "✅ Backend API is responding"
         stats=$(curl -s http://localhost:5000/api/stats 2>/dev/null)
         if [ -n "$stats" ]; then
@@ -93,7 +93,7 @@ cd .. 2>/dev/null || true
 echo ""
 echo "🐍 Python Services:"
 echo "------------------"
-check_process "python.*-m backend\.app" "Backend API"
+check_process "python.*-m backend\.infrastructure\.api\.app" "Backend API"
 check_process "python.*-m data_pipeline\.consumer" "Sentiment Consumer"
 check_process "python.*-m data_pipeline\.producer" "Reddit Producer"
 
@@ -103,7 +103,7 @@ echo "------------------"
 check_port "4321" "Frontend Dashboard"
 
 # Check API status if backend is running
-if curl -s http://localhost:5000/api/stats >/dev/null 2>&1; then
+if curl -s http://localhost:5000/health >/dev/null 2>&1; then
     check_api_status
 fi
 

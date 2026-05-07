@@ -1,6 +1,3 @@
-import json
-
-
 PATCH = "backend.infrastructure.api.app.comment_repository"
 
 
@@ -12,8 +9,7 @@ class TestHealthEndpoint:
 
     def test_response_contains_healthy_status(self, client, mocker):
         mocker.patch(PATCH).get_sentiment_counts.return_value = {}
-        data = json.loads(client.get("/health").data)
-        assert data["status"] == "healthy"
+        assert client.get("/health").json()["status"] == "healthy"
 
     def test_calls_repo_to_verify_data_layer(self, client, mocker):
         mock = mocker.patch(PATCH)
@@ -28,6 +24,6 @@ class TestHealthEndpoint:
 
     def test_unhealthy_response_contains_status_and_error(self, client, mocker):
         mocker.patch(PATCH).get_sentiment_counts.side_effect = Exception("db down")
-        data = json.loads(client.get("/health").data)
+        data = client.get("/health").json()
         assert data["status"] == "unhealthy"
-        assert "error" in data
+        assert "detail" in data

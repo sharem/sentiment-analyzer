@@ -1,4 +1,4 @@
-from datetime import datetime
+from datetime import datetime, timezone
 
 import pytest
 
@@ -15,18 +15,16 @@ def make_comment():
             text=text,
             sentiment=Sentiment(sentiment),
             polarity=polarity,
-            timestamp=datetime.now().isoformat(),
+            timestamp=datetime.now(timezone.utc),
         )
     return _make
 
 
 @pytest.fixture
 def service(tmp_path):
-    s = SQLiteCommentRepository(
+    return SQLiteCommentRepository(
         max_comments=5, db_path=str(tmp_path / "test.db")
     )
-    yield s
-    s.clear_data()
 
 
 @pytest.fixture
