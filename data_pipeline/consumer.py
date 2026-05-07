@@ -40,7 +40,7 @@ def create_kafka_consumer():
     try:
         consumer = KafkaConsumer(
             "reddit-comments",
-            bootstrap_servers="localhost:9092",
+            bootstrap_servers=os.getenv("KAFKA_BOOTSTRAP_SERVERS", "localhost:9092"),
             auto_offset_reset="earliest",
             group_id="sentiment-group",
             value_deserializer=lambda m: json.loads(m.decode("utf-8")),
