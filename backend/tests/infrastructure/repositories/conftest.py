@@ -1,4 +1,4 @@
-from datetime import datetime
+from datetime import datetime, timezone
 
 import pytest
 
@@ -15,7 +15,7 @@ def make_comment():
             text=text,
             sentiment=Sentiment(sentiment),
             polarity=polarity,
-            timestamp=datetime.now(),
+            timestamp=datetime.now(timezone.utc),
         )
     return _make
 

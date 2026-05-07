@@ -1,4 +1,4 @@
-from datetime import datetime
+from datetime import datetime, timezone
 
 from textblob import TextBlob
 
@@ -22,5 +22,5 @@ def analyze_sentiment(text: str) -> Comment:
         text=text,
         sentiment=classify_polarity(polarity),
         polarity=polarity,
-        timestamp=datetime.now(),
+        timestamp=datetime.now(timezone.utc),
     )

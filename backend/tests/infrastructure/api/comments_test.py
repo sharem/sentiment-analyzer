@@ -1,4 +1,4 @@
-from datetime import datetime
+from datetime import datetime, timezone
 
 from backend.domain.comment import Comment, Sentiment
 
@@ -24,13 +24,13 @@ class TestCommentsEndpoint:
                 text="Test comment 1",
                 sentiment=Sentiment.POSITIVE,
                 polarity=0.5,
-                timestamp=datetime(2024, 1, 1, 0, 0, 0),
+                timestamp=datetime(2024, 1, 1, 0, 0, 0, tzinfo=timezone.utc),
             ),
             Comment(
                 text="Test comment 2",
                 sentiment=Sentiment.NEGATIVE,
                 polarity=-0.3,
-                timestamp=datetime(2024, 1, 1, 0, 0, 1),
+                timestamp=datetime(2024, 1, 1, 0, 0, 1, tzinfo=timezone.utc),
             ),
         ]
         data = client.get("/api/comments?limit=2").json()
