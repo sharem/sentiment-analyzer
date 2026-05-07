@@ -55,7 +55,7 @@ python_files = "*_test.py"
 python_classes = "Test*"
 python_functions = "test_*"
 # Output options
-addopts = "-v --tb=short"
+addopts = "-v --tb=short --cov=backend --cov-report=term-missing"
 # Add project root to Python path for imports
 pythonpath = ["."]
 # Test markers (for organizing tests)

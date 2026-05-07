@@ -6,6 +6,7 @@ import json
 import pytest
 
 from backend.app import app
+from backend.domain.comment import Comment, Sentiment
 
 
 @pytest.fixture
@@ -40,7 +41,7 @@ class TestSentimentEndpoint:
 
     def test_sentiment_endpoint_with_mock(self, client, mocker):
         # Patch where it's used (in backend.app module), not where it's defined
-        mock_service = mocker.patch("backend.app.sentiment_data_service")
+        mock_service = mocker.patch("backend.app.comment_repository")
         mock_service.get_sentiment_counts.return_value = {
             "positive": 15,
             "negative": 8,
@@ -89,18 +90,20 @@ class TestCommentsEndpoint:
         assert "error" in data
 
     def test_comments_endpoint_with_mock(self, client, mocker):
-        mock_service = mocker.patch("backend.app.sentiment_data_service")
+        mock_service = mocker.patch("backend.app.comment_repository")
         mock_comments = [
-            {
-                "text": "Test comment 1",
-                "sentiment": "positive",
-                "polarity": 0.5,
-            },
-            {
-                "text": "Test comment 2",
-                "sentiment": "negative",
-                "polarity": -0.3,
-            },
+            Comment(
+                text="Test comment 1",
+                sentiment=Sentiment.POSITIVE,
+                polarity=0.5,
+                timestamp="2024-01-01T00:00:00",
+            ),
+            Comment(
+                text="Test comment 2",
+                sentiment=Sentiment.NEGATIVE,
+                polarity=-0.3,
+                timestamp="2024-01-01T00:00:01",
+            ),
         ]
         mock_service.get_recent_comments.return_value = mock_comments
         response = client.get("/api/comments?limit=2")
@@ -124,7 +127,7 @@ class TestStatsEndpoint:
         assert isinstance(data, dict)
 
     def test_stats_endpoint_with_mock(self, client, mocker):
-        mock_service = mocker.patch("backend.app.sentiment_data_service")
+        mock_service = mocker.patch("backend.app.comment_repository")
         mock_service.get_stats.return_value = {
             "total_comments": 35,
             "sentiment_counts": {"positive": 15, "negative": 8, "neutral": 12},
@@ -152,7 +155,7 @@ class TestErrorHandling:
         assert "error" in data
 
     def test_service_error_handling(self, client, mocker):
-        mock_service = mocker.patch("backend.app.sentiment_data_service")
+        mock_service = mocker.patch("backend.app.comment_repository")
         mock_service.get_sentiment_counts.side_effect = ValueError(
             "Test error"
         )
@@ -164,7 +167,7 @@ class TestErrorHandling:
         assert "error" in data
 
     def test_comments_service_error(self, client, mocker):
-        mock_service = mocker.patch("backend.app.sentiment_data_service")
+        mock_service = mocker.patch("backend.app.comment_repository")
         mock_service.get_recent_comments.side_effect = Exception(
             "Database error"
         )
@@ -176,7 +179,7 @@ class TestErrorHandling:
         assert "error" in data
 
     def test_stats_service_error(self, client, mocker):
-        mock_service = mocker.patch("backend.app.sentiment_data_service")
+        mock_service = mocker.patch("backend.app.comment_repository")
         mock_service.get_stats.side_effect = IOError("File read error")
 
         response = client.get("/api/stats")

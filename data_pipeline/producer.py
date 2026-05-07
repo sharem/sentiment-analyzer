@@ -49,7 +49,9 @@ def create_kafka_producer():
     """Create and return Kafka producer."""
     try:
         producer = KafkaProducer(
-            bootstrap_servers=os.getenv("KAFKA_BOOTSTRAP_SERVERS", "localhost:9092"),
+            bootstrap_servers=os.getenv(
+                "KAFKA_BOOTSTRAP_SERVERS", "localhost:9092"
+            ),
             value_serializer=lambda v: json.dumps(v).encode("utf-8"),
             request_timeout_ms=30000,
             retries=3,
