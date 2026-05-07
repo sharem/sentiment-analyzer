@@ -68,6 +68,17 @@ def comments():
         return jsonify({"error": "Internal server error"}), 500
 
 
+@app.route("/health")
+def health():
+    """Health check for load balancer / monitoring."""
+    try:
+        comment_repository.get_sentiment_counts()
+        return jsonify({"status": "healthy"}), 200
+    except Exception as e:
+        logger.error("Health check failed: %s", str(e))
+        return jsonify({"status": "unhealthy", "error": str(e)}), 503
+
+
 @app.route("/api/stats")
 def stats():
     """Endpoint to get overall statistics."""

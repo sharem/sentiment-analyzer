@@ -105,7 +105,7 @@ sentiment-analyzer/
 - **`sentiment_service`** — domain service: `classify_polarity` and `analyze_sentiment`
 
 ### Backend Infrastructure (`backend/infrastructure/`)
-- **Flask API** — HTTP adapter exposing `/api/sentiment`, `/api/comments`, `/api/stats`
+- **Flask API** — HTTP adapter exposing `/api/sentiment`, `/api/comments`, `/api/stats`, `/health`
 - **SQLiteCommentRepository** — repository adapter with circular buffer (100 comments default) and WAL mode
 
 ### Data Pipeline (`data_pipeline/`)
@@ -131,6 +131,7 @@ pytest
 pytest backend/tests/domain/
 pytest backend/tests/application/
 pytest backend/tests/infrastructure/
+pytest data_pipeline/tests/
 
 # Verbose
 pytest -v
@@ -178,6 +179,7 @@ cd frontend && npm run dev
 tail -f logs/app.log
 tail -f logs/consumer.log
 watch -n 5 'curl -s http://localhost:5000/api/stats | jq'
+curl -s http://localhost:5000/health   # quick health check
 ```
 
 ## Troubleshooting
