@@ -14,7 +14,7 @@ from backend.domain.comment import Comment
 from backend.domain.comment_repository import CommentRepository
 from backend.infrastructure.api import exception_handlers
 from backend.infrastructure.api.exception_handlers import HealthCheckError
-from backend.infrastructure.api.schemas import (
+from backend.infrastructure.api.responses import (
     CommentResponse,
     HealthResponse,
     SentimentCountsResponse,
@@ -44,6 +44,7 @@ app.add_exception_handler(RequestValidationError, exception_handlers.log_validat
 app.add_exception_handler(Exception, exception_handlers.handle_exception)
 
 
+# Dependency injection for repository (TODO: consider putting this in a separate file)
 def get_repository() -> CommentRepository:
     return _repo
 
