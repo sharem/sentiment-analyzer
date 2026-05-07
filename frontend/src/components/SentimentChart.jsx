@@ -1,9 +1,9 @@
 import { useEffect, useState, useCallback, useMemo } from 'react';
 import { Pie } from 'react-chartjs-2';
-import Chart from 'chart.js/auto';
+import 'chart.js/auto';
 import './SentimentChart.css';
 
-export default function SentimentChart() {
+export default function SentimentChart({ refreshKey = 0, onRefreshed }) {
   const [sentimentCounts, setSentimentCounts] = useState({
     positive: 0,
     negative: 0,
@@ -56,16 +56,16 @@ export default function SentimentChart() {
   }, []);
   
   useEffect(() => {
-    // Initial fetch
     fetchSentimentData(true);
-    
-    // Set up automatic refresh every 10 seconds
-    const interval = setInterval(() => {
-      fetchSentimentData(false);
-    }, 10000);
-    
+    const interval = setInterval(() => { fetchSentimentData(false); }, 10000);
     return () => clearInterval(interval);
   }, [fetchSentimentData]);
+
+  useEffect(() => {
+    if (refreshKey > 0) {
+      fetchSentimentData(true).finally(() => onRefreshed?.());
+    }
+  }, [refreshKey, fetchSentimentData, onRefreshed]);
 
   // Memoize the chart data structure
   const chartData = useMemo(() => ({
@@ -157,24 +157,11 @@ export default function SentimentChart() {
       <div className="sentiment-chart-header">
         <h3 className="sentiment-chart-title">
           Sentiment Analysis
-          {isRefreshing && (
-            <span className="auto-refresh-indicator"> 🔄</span>
-          )}
+          {isRefreshing && <span className="auto-refresh-indicator"> 🔄</span>}
         </h3>
-        <div className="sentiment-chart-controls">
-          {lastUpdated && (
-            <span className="last-updated">
-              Updated: {lastUpdated.toLocaleTimeString()}
-            </span>
-          )}
-          <button 
-            onClick={() => fetchSentimentData(true)}
-            disabled={isRefreshing}
-            className="sentiment-chart-refresh-button"
-          >
-            {isRefreshing ? 'Refreshing...' : 'Refresh Now'}
-          </button>
-        </div>
+        {lastUpdated && (
+          <span className="last-updated">Updated: {lastUpdated.toLocaleTimeString()}</span>
+        )}
       </div>
       <div className="sentiment-chart-wrapper">
         <Pie data={chartData} options={chartOptions} />

@@ -1,7 +1,9 @@
 .sentiment-chart-container {
   width: 100%;
-  max-width: 400px;
-  height: 400px;
+  flex: 1;
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
   padding: 20px;
 }
 
@@ -83,7 +85,8 @@
 }
 
 .sentiment-chart-wrapper {
-  height: 300px;
+  flex: 1;
+  min-height: 0;
 }
 
 .sentiment-chart-button {

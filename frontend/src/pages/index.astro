@@ -1,6 +1,5 @@
 ---
-import SentimentChart from '../components/SentimentChart.jsx'
-import RecentComments from '../components/RecentComments.jsx'
+import Dashboard from '../components/Dashboard.jsx'
 import '../styles/global.css'
 ---
 
@@ -16,15 +15,8 @@ import '../styles/global.css'
         <h1 class="dashboard-title">Sentiment Dashboard</h1>
         <p class="dashboard-subtitle">Real-time sentiment analysis of Reddit comments</p>
       </header>
-      
-      <div class="dashboard-content">
-        <div class="chart-section">
-          <SentimentChart client:load />
-        </div>
-        
-        <div class="comments-section">
-          <RecentComments client:load />
-        </div>
+      <div class="dashboard-main">
+        <Dashboard client:load />
       </div>
     </div>
   </body>
