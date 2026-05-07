@@ -30,7 +30,7 @@ if [ -z "$VIRTUAL_ENV" ]; then
 fi
 
 # Verify package is installed
-if ! python -c "import backend.app" 2>/dev/null; then
+if ! python -c "import backend.infrastructure.api.app" 2>/dev/null; then
     echo "⚠️  Package not installed. Installing in editable mode..."
     pip install -e . || {
         echo "❌ Failed to install package"
@@ -109,7 +109,7 @@ echo "⏳ Waiting for Kafka to be ready..."
 sleep 15
 
 # 2. Start Backend (Flask API)
-start_python_service "backend.app" "Backend API"
+start_python_service "backend.infrastructure.api.app" "Backend API"
 sleep 5
 
 check_service "Backend API" "5000" || {

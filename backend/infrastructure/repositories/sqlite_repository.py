@@ -3,7 +3,7 @@ import os
 import logging
 from typing import Dict, List, Optional
 
-from backend.application.ports.comment_repository import CommentRepository
+from backend.domain.comment_repository import CommentRepository
 from backend.domain.comment import Comment, Sentiment
 
 logger = logging.getLogger(__name__)
