@@ -9,7 +9,7 @@ echo "🚀 Starting Sentiment Analyzer Pipeline..."
 echo "=========================================="
 
 # Check if we're in the right directory
-if [ ! -f "data_pipeline/docker-compose.yml" ]; then
+if [ ! -f "docker-compose.yml" ]; then
     echo "❌ Error: Please run this script from the sentiment-analyzer project root"
     exit 1
 fi
@@ -91,8 +91,6 @@ if ! docker info > /dev/null 2>&1; then
     fi
 fi
 
-cd data_pipeline
-
 if docker-compose ps -q 2>/dev/null | grep -q .; then
     echo "   Stopping existing containers..."
     docker-compose down --volumes --remove-orphans
@@ -102,8 +100,6 @@ fi
 
 echo "   Starting Kafka and Zookeeper..."
 docker-compose up -d
-
-cd ..
 
 echo "⏳ Waiting for Kafka to be ready..."
 sleep 15
@@ -118,11 +114,11 @@ check_service "Backend API" "5000" "/health" || {
 }
 
 # 3. Start Consumer
-start_python_service "data_pipeline.consumer" "Sentiment Consumer"
+start_python_service "backend.infrastructure.pipeline.consumer" "Sentiment Consumer"
 sleep 3
 
 # 4. Start Producer
-start_python_service "data_pipeline.producer" "Reddit Producer"
+start_python_service "backend.infrastructure.pipeline.producer" "Reddit Producer"
 sleep 3
 
 # 5. Start Frontend

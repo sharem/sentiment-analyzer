@@ -1,14 +1,14 @@
-"""Kafka consumer for Reddit comments sentiment analysis."""
+"""Consumer entry point — drives sentiment analysis from a message broker."""
 
 import json
-import sys
-import os
-import time
 import logging
-from kafka import KafkaConsumer
+import time
+
 from kafka.errors import KafkaError
 
+from backend.infrastructure.messaging.message_broker import MessageBroker
 from backend.domain.sentiment_service import analyze_sentiment
+from backend.infrastructure.messaging import KafkaBroker
 from backend.infrastructure.repositories import comment_repository
 
 logging.basicConfig(
@@ -18,36 +18,11 @@ logging.basicConfig(
 logger = logging.getLogger(__name__)
 
 
-def create_kafka_consumer(retries: int = 5):
-    """Create and return Kafka consumer with exponential backoff retry."""
-    for attempt in range(retries):
-        try:
-            consumer = KafkaConsumer(
-                "reddit-comments",
-                bootstrap_servers=os.getenv(
-                    "KAFKA_BOOTSTRAP_SERVERS", "localhost:9092"
-                ),
-                auto_offset_reset="earliest",
-                group_id="sentiment-group",
-                value_deserializer=lambda m: json.loads(m.decode("utf-8")),
-                request_timeout_ms=30000,
-            )
-            logger.info("Kafka consumer created successfully")
-            return consumer
-        except KafkaError as e:
-            wait = 2 ** attempt
-            logger.warning(f"Attempt {attempt + 1} failed, retrying in {wait}s: {e}")
-            time.sleep(wait)
-    logger.error("Could not connect to Kafka after multiple attempts")
-    sys.exit(1)
-
-
-def process_message(message) -> None:
-    """Process a single Kafka message and persist the result."""
+def process_message(message: dict) -> None:
     start = time.time()
 
     try:
-        text = message.value["text"]
+        text = message["text"]
     except KeyError:
         logger.error(json.dumps({"event": "message_skipped", "reason": "missing_text_field"}))
         return
@@ -69,17 +44,16 @@ def process_message(message) -> None:
         }))
 
 
-def main():
+def main(broker: MessageBroker | None = None) -> None:
     """Main consumer loop."""
-    consumer = create_kafka_consumer()
+    broker = broker or KafkaBroker()
 
     logger.info("Starting sentiment analysis consumer...")
     logger.info("Processing messages from Kafka topic 'reddit-comments'")
 
     try:
-        for message in consumer:
+        for message in broker.consume("reddit-comments"):
             process_message(message)
-
     except KeyboardInterrupt:
         logger.info("Shutdown requested... exiting gracefully")
     except KafkaError as e:
@@ -87,8 +61,8 @@ def main():
     except Exception as e:
         logger.error(f"Unexpected error occurred: {e}")
     finally:
-        logger.info("Closing Kafka consumer...")
-        consumer.close()
+        logger.info("Closing broker...")
+        broker.close()
         logger.info("Consumer shutdown complete")
 
 

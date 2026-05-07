@@ -35,7 +35,7 @@ package-dir = {"" = "."}
 
 [tool.setuptools.packages.find]
 where = ["."]
-include = ["backend*", "data_pipeline*"]
+include = ["backend*"]
 exclude = ["tests*", "docs*", "*/tests*", "*/docs*", "*.egg-info"]
 
 [tool.black]
@@ -51,12 +51,12 @@ disallow_untyped_defs = true
 # Pytest configuration for sentiment analyzer backend
 [tool.pytest.ini_options]
 # Test discovery
-testpaths = ["backend/tests", "data_pipeline/tests"]
+testpaths = ["backend/tests"]
 python_files = "*_test.py"
 python_classes = "Test*"
 python_functions = "test_*"
 # Output options
-addopts = "-v --tb=short --cov=backend --cov=data_pipeline --cov-report=term-missing"
+addopts = "-v --tb=short --cov=backend --cov-report=term-missing"
 # Add project root to Python path for imports
 pythonpath = ["."]
 # Test markers (for organizing tests)

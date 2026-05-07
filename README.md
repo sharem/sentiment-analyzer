@@ -8,9 +8,9 @@ A real-time sentiment analysis pipeline that fetches Reddit comments, processes 
 Reddit API → Producer → Kafka → Consumer → SQLite → FastAPI → Frontend Dashboard
 ```
 
-The backend follows **Hexagonal Architecture (Ports & Adapters)**. The domain layer is isolated from infrastructure and can swap adapters (e.g. SQLite → PostgreSQL) without touching business logic.
+The backend follows **Hexagonal Architecture (Ports & Adapters)**. The domain layer is isolated from infrastructure and can swap adapters without touching business logic — e.g. SQLite → PostgreSQL, or Kafka → Redis Pub/Sub with a one-line change.
 
-> **Note:** Kafka is intentionally overengineered for this scale. I just wanted to mess around with it.
+> **Note:** Kafka is intentionally overengineered for this scale. It's kept because the `MessageBroker` port makes swapping to Redis a one-liner, which demonstrates the architecture works.
 
 ## Project Structure
 
@@ -26,18 +26,23 @@ sentiment-analyzer/
 │   │   │   ├── app.py                  # FastAPI adapter — routes and middleware
 │   │   │   ├── exception_handlers.py   # Centralised exception handlers
 │   │   │   └── schemas.py              # Pydantic response models
+│   │   ├── messaging/
+│   │   │   ├── message_broker.py       # MessageBroker ABC
+│   │   │   ├── kafka_broker.py         # Kafka adapter
+│   │   │   └── redis_broker.py         # Redis Pub/Sub adapter (swap-in replacement)
+│   │   ├── pipeline/
+│   │   │   ├── producer.py             # Reddit → broker entry point
+│   │   │   └── consumer.py             # broker → domain → repository entry point
 │   │   └── repositories/
 │   │       └── sqlite_repository.py    # SQLite adapter (repository implementation)
 │   └── tests/
 │       ├── domain/                     # Domain logic tests
 │       └── infrastructure/
 │           ├── api/                    # API endpoint tests
+│           ├── messaging/              # Broker adapter tests
+│           ├── pipeline/               # Producer/consumer entry point tests
 │           └── repositories/          # Repository integration tests
-├── data_pipeline/
-│   ├── producer.py                     # Reddit → Kafka (primary adapter)
-│   ├── consumer.py                     # Kafka → domain → repository (primary adapter)
-│   ├── docker-compose.yml              # Kafka & Zookeeper services
-│   └── README.md
+├── docker-compose.yml                  # Kafka & Zookeeper services
 ├── frontend/                           # Astro/React dashboard
 │   └── src/
 │       ├── components/
@@ -84,6 +89,10 @@ sentiment-analyzer/
    REDDIT_USER_AGENT=sentiment-analyzer-bot
    SECRET_KEY=your_secret_key
    CORS_ORIGINS=http://localhost:4321
+   KAFKA_BOOTSTRAP_SERVERS=localhost:9092
+   KAFKA_TOPIC=reddit-comments
+   PORT=5000
+   ENV=development
    ```
 
 ### Running the Application
@@ -113,11 +122,21 @@ sentiment-analyzer/
 - **FastAPI** — HTTP adapter exposing `/api/sentiment`, `/api/comments`, `/api/stats`, `/health`. Auto-generates OpenAPI docs at `/docs`.
 - **Pydantic schemas** — `CommentResponse`, `SentimentCountsResponse`, `StatsResponse`, `HealthResponse` define and validate all API response shapes.
 - **SQLiteCommentRepository** — repository adapter with circular buffer (100 comments default) and WAL mode
+- **MessageBroker** — ABC defining the publish/consume interface (lives alongside its implementations)
+- **KafkaBroker** — `MessageBroker` implementation; lazy-initialises producer/consumer with exponential-backoff retry on connect
+- **RedisBroker** — drop-in `MessageBroker` implementation using Redis Pub/Sub (requires `pip install redis`)
 
-### Data Pipeline (`data_pipeline/`)
-- **Producer** — streams Reddit comments from r/AskReddit into Kafka
-- **Consumer** — reads from Kafka, calls `analyze_sentiment` (domain service), persists via repository
-- **Docker Compose** — Kafka + Zookeeper infrastructure
+### Pipeline (`backend/infrastructure/pipeline/`)
+- **Producer** — streams Reddit comments from r/AskReddit and publishes via `MessageBroker`
+- **Consumer** — consumes via `MessageBroker`, calls `analyze_sentiment` (domain service), persists via repository
+- Both accept an optional `broker: MessageBroker` parameter for dependency injection (defaults to `KafkaBroker`)
+
+Swapping Kafka for Redis is a one-line change:
+```python
+main(broker=RedisBroker())   # requires: pip install redis
+```
+
+**`docker-compose.yml`** at project root — Kafka + Zookeeper infrastructure.
 
 ### Frontend (`frontend/`)
 - **Astro + React** — full-viewport dashboard, auto-refreshes every 10 seconds
@@ -136,8 +155,9 @@ pytest
 # Specific layers
 pytest backend/tests/domain/
 pytest backend/tests/infrastructure/api/
+pytest backend/tests/infrastructure/messaging/
+pytest backend/tests/infrastructure/pipeline/
 pytest backend/tests/infrastructure/repositories/
-pytest data_pipeline/tests/
 
 # Verbose
 pytest -v
@@ -146,23 +166,23 @@ pytest -v
 ### Code Quality
 
 ```bash
-flake8 backend/ data_pipeline/
+flake8 backend/
 ```
 
 ### Running Components Individually
 
 ```bash
 # Kafka infrastructure
-cd data_pipeline && docker-compose up -d
+docker-compose up -d
 
 # Backend API (starts uvicorn)
 python -m backend.infrastructure.api.app
 
 # Consumer
-python -m data_pipeline.consumer
+python -m backend.infrastructure.pipeline.consumer
 
 # Producer
-python -m data_pipeline.producer
+python -m backend.infrastructure.pipeline.producer
 
 # Frontend
 cd frontend && npm run dev
@@ -209,7 +229,7 @@ tail -f logs/consumer.log   # Check Kafka connectivity
 
 **Docker/Kafka issues:**
 ```bash
-cd data_pipeline && docker-compose logs
+docker-compose logs
 sudo service docker start
 ```
 
