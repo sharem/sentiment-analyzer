@@ -3,9 +3,6 @@ from datetime import datetime, timezone
 from backend.domain.comment import Comment, Sentiment
 
 
-PATCH = "backend.infrastructure.api.app.comment_repository"
-
-
 class TestCommentsEndpoint:
     def test_returns_list(self, client):
         response = client.get("/api/comments")
@@ -17,9 +14,8 @@ class TestCommentsEndpoint:
         assert response.status_code == 200
         assert len(response.json()) <= 2
 
-    def test_returns_correct_comments(self, client, mocker):
-        mock = mocker.patch(PATCH)
-        mock.get_recent_comments.return_value = [
+    def test_returns_correct_comments(self, client, mock_repo):
+        mock_repo.get_recent_comments.return_value = [
             Comment(
                 text="Test comment 1",
                 sentiment=Sentiment.POSITIVE,
@@ -36,11 +32,10 @@ class TestCommentsEndpoint:
         data = client.get("/api/comments?limit=2").json()
         assert len(data) == 2
         assert data[0]["text"] == "Test comment 1"
-        mock.get_recent_comments.assert_called_once_with(2)
+        mock_repo.get_recent_comments.assert_called_once_with(2)
 
-    def test_returns_500_on_error(self, client, mocker):
-        mock = mocker.patch(PATCH)
-        mock.get_recent_comments.side_effect = Exception("db error")
+    def test_returns_500_on_error(self, client, mock_repo):
+        mock_repo.get_recent_comments.side_effect = Exception("db error")
         response = client.get("/api/comments")
         assert response.status_code == 500
         assert "detail" in response.json()

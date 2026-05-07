@@ -43,13 +43,13 @@ fi
 check_service() {
     local service_name=$1
     local port=$2
+    local path=${3:-/}
     local max_attempts=30
     local attempt=1
 
     echo "⏳ Waiting for $service_name to be ready..."
     while [ $attempt -le $max_attempts ]; do
-        if curl -s "http://127.0.0.1:$port" > /dev/null 2>&1 || \
-           curl -s "http://localhost:$port" > /dev/null 2>&1; then
+        if curl -s "http://127.0.0.1:$port$path" > /dev/null 2>&1; then
             echo "✅ $service_name is ready!"
             return 0
         fi
@@ -57,7 +57,7 @@ check_service() {
         sleep 2
         attempt=$((attempt + 1))
     done
-    
+
     echo "❌ $service_name failed to start after $max_attempts attempts"
     return 1
 }
@@ -112,7 +112,7 @@ sleep 15
 start_python_service "backend.infrastructure.api.app" "Backend API"
 sleep 5
 
-check_service "Backend API" "5000" || {
+check_service "Backend API" "5000" "/health" || {
     echo "❌ Backend failed to start. Check logs/app.log"
     exit 1
 }
