@@ -20,13 +20,21 @@ logging.basicConfig(
 logger = logging.getLogger(__name__)
 
 
+def get_required_env(key: str) -> str:
+    """Return env var value or raise with a clear message if missing."""
+    value = os.getenv(key)
+    if not value:
+        raise ValueError(f"Required environment variable {key} is missing")
+    return value
+
+
 def create_reddit_client():
     """Create and return Reddit API client."""
     try:
         reddit = praw.Reddit(
-            client_id=os.getenv("REDDIT_CLIENT_ID"),
-            client_secret=os.getenv("REDDIT_CLIENT_SECRET"),
-            user_agent=os.getenv("REDDIT_USER_AGENT"),
+            client_id=get_required_env("REDDIT_CLIENT_ID"),
+            client_secret=get_required_env("REDDIT_CLIENT_SECRET"),
+            user_agent=get_required_env("REDDIT_USER_AGENT"),
         )
         # Test the connection
         reddit.user.me()
@@ -41,7 +49,7 @@ def create_kafka_producer():
     """Create and return Kafka producer."""
     try:
         producer = KafkaProducer(
-            bootstrap_servers="localhost:9092",
+            bootstrap_servers=os.getenv("KAFKA_BOOTSTRAP_SERVERS", "localhost:9092"),
             value_serializer=lambda v: json.dumps(v).encode("utf-8"),
             request_timeout_ms=30000,
             retries=3,
