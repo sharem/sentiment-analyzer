@@ -106,9 +106,7 @@ class SQLiteCommentRepository(CommentRepository):
                 FROM comments
                 GROUP BY sentiment
             """).fetchall()
-        counts: Dict[str, int] = {
-            "positive": 0, "neutral": 0, "negative": 0
-        }
+        counts: Dict[str, int] = {s.value: 0 for s in Sentiment}
         for row in rows:
             counts[row["sentiment"]] = row["count"]
         return counts
@@ -127,9 +125,7 @@ class SQLiteCommentRepository(CommentRepository):
                 GROUP BY sentiment
             """).fetchall()
 
-        counts: Dict[str, int] = {
-            "positive": 0, "neutral": 0, "negative": 0
-        }
+        counts: Dict[str, int] = {s.value: 0 for s in Sentiment}
         for r in count_rows:
             counts[r["sentiment"]] = r["count"]
 
