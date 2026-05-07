@@ -10,6 +10,8 @@ Reddit API → Producer → Kafka → Consumer → SQLite → FastAPI → Fronte
 
 The backend follows **Hexagonal Architecture (Ports & Adapters)**. The domain layer is isolated from infrastructure and can swap adapters (e.g. SQLite → PostgreSQL) without touching business logic.
 
+> **Note:** Kafka is intentionally overengineered for this scale. I just wanted to mess around with it.
+
 ## Project Structure
 
 ```
