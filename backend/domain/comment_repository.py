@@ -22,7 +22,3 @@ class CommentRepository(ABC):
     @abstractmethod
     def get_stats(self) -> Dict:
         raise NotImplementedError
-
-    @abstractmethod
-    def clear_data(self) -> None:
-        raise NotImplementedError

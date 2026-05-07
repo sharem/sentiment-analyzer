@@ -4,12 +4,10 @@ import json
 import sys
 import os
 import logging
-from datetime import datetime
 from kafka import KafkaConsumer
 from kafka.errors import KafkaError
-from textblob import TextBlob
 
-from backend.domain.comment import Comment, Sentiment
+from backend.domain.sentiment_service import analyze_sentiment
 from backend.infrastructure.repositories import comment_repository
 
 logging.basicConfig(
@@ -17,9 +15,6 @@ logging.basicConfig(
     format="%(asctime)s - %(levelname)s - %(message)s",
 )
 logger = logging.getLogger(__name__)
-
-POSITIVE_THRESHOLD = 0.1
-NEGATIVE_THRESHOLD = -0.1
 
 
 def create_kafka_consumer():
@@ -40,25 +35,6 @@ def create_kafka_consumer():
     except KafkaError as e:
         logger.error(f"Failed to create Kafka consumer: {e}")
         sys.exit(1)
-
-
-def analyze_sentiment(text: str) -> Comment:
-    """Analyse text and return a Comment domain object."""
-    polarity = TextBlob(text).sentiment.polarity
-
-    if polarity > POSITIVE_THRESHOLD:
-        sentiment = Sentiment.POSITIVE
-    elif polarity < NEGATIVE_THRESHOLD:
-        sentiment = Sentiment.NEGATIVE
-    else:
-        sentiment = Sentiment.NEUTRAL
-
-    return Comment(
-        text=text,
-        sentiment=sentiment,
-        polarity=polarity,
-        timestamp=datetime.now().isoformat(),
-    )
 
 
 def main():
