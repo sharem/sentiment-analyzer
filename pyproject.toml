@@ -50,12 +50,12 @@ disallow_untyped_defs = true
 # Pytest configuration for sentiment analyzer backend
 [tool.pytest.ini_options]
 # Test discovery
-testpaths = ["backend/tests"]
+testpaths = ["backend/tests", "data_pipeline/tests"]
 python_files = "*_test.py"
 python_classes = "Test*"
 python_functions = "test_*"
 # Output options
-addopts = "-v --tb=short --cov=backend --cov-report=term-missing"
+addopts = "-v --tb=short --cov=backend --cov=data_pipeline --cov-report=term-missing"
 # Add project root to Python path for imports
 pythonpath = ["."]
 # Test markers (for organizing tests)

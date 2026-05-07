@@ -5,7 +5,7 @@ Kafka-based pipeline that streams Reddit comments into the sentiment analyzer.
 ## Files
 
 - **`producer.py`** — fetches comments from r/AskReddit via PRAW and publishes them to the `reddit-comments` Kafka topic
-- **`consumer.py`** — reads from Kafka, calls `analyze_sentiment` from the backend domain, and persists each comment via the repository
+- **`consumer.py`** — reads from Kafka, calls `analyze_sentiment` from the backend domain, and persists each comment via the repository. Retries the Kafka connection up to 5 times with exponential backoff before exiting.
 - **`docker-compose.yml`** — Kafka + Zookeeper infrastructure
 
 ## Usage

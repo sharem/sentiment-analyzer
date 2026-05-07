@@ -3,6 +3,7 @@
 import json
 import sys
 import os
+import time
 import logging
 from kafka import KafkaConsumer
 from kafka.errors import KafkaError
@@ -17,24 +18,28 @@ logging.basicConfig(
 logger = logging.getLogger(__name__)
 
 
-def create_kafka_consumer():
-    """Create and return Kafka consumer."""
-    try:
-        consumer = KafkaConsumer(
-            "reddit-comments",
-            bootstrap_servers=os.getenv(
-                "KAFKA_BOOTSTRAP_SERVERS", "localhost:9092"
-            ),
-            auto_offset_reset="earliest",
-            group_id="sentiment-group",
-            value_deserializer=lambda m: json.loads(m.decode("utf-8")),
-            request_timeout_ms=30000,
-        )
-        logger.info("Kafka consumer created successfully")
-        return consumer
-    except KafkaError as e:
-        logger.error(f"Failed to create Kafka consumer: {e}")
-        sys.exit(1)
+def create_kafka_consumer(retries: int = 5):
+    """Create and return Kafka consumer with exponential backoff retry."""
+    for attempt in range(retries):
+        try:
+            consumer = KafkaConsumer(
+                "reddit-comments",
+                bootstrap_servers=os.getenv(
+                    "KAFKA_BOOTSTRAP_SERVERS", "localhost:9092"
+                ),
+                auto_offset_reset="earliest",
+                group_id="sentiment-group",
+                value_deserializer=lambda m: json.loads(m.decode("utf-8")),
+                request_timeout_ms=30000,
+            )
+            logger.info("Kafka consumer created successfully")
+            return consumer
+        except KafkaError as e:
+            wait = 2 ** attempt
+            logger.warning(f"Attempt {attempt + 1} failed, retrying in {wait}s: {e}")
+            time.sleep(wait)
+    logger.error("Could not connect to Kafka after multiple attempts")
+    sys.exit(1)
 
 
 def main():
