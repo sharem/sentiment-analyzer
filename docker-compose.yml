@@ -1,7 +1,10 @@
 version: '3.8'
 
 services:
+
+  # ── Kafka stack (--profile kafka) ────────────────────────────────────
   zookeeper:
+    profiles: [kafka]
     image: confluentinc/cp-zookeeper:7.4.0
     hostname: zookeeper
     container_name: zookeeper
@@ -12,6 +15,7 @@ services:
       ZOOKEEPER_TICK_TIME: 2000
 
   kafka:
+    profiles: [kafka]
     image: confluentinc/cp-kafka:7.4.0
     hostname: kafka
     container_name: kafka
@@ -34,6 +38,7 @@ services:
       KAFKA_JMX_HOSTNAME: localhost
 
   kafka-ui:
+    profiles: [kafka]
     image: provectuslabs/kafka-ui:latest
     container_name: kafka-ui
     depends_on:
@@ -44,3 +49,24 @@ services:
       KAFKA_CLUSTERS_0_NAME: local
       KAFKA_CLUSTERS_0_BOOTSTRAPSERVERS: kafka:29092
       KAFKA_CLUSTERS_0_ZOOKEEPER: zookeeper:2181
+
+  # ── Redis stack (--profile redis) ────────────────────────────────────
+  redis:
+    profiles: [redis]
+    image: redis:7-alpine
+    hostname: redis
+    container_name: redis
+    ports:
+      - "6379:6379"
+    command: redis-server --save 60 1 --loglevel warning
+
+  redis-commander:
+    profiles: [redis]
+    image: rediscommander/redis-commander:latest
+    container_name: redis-commander
+    depends_on:
+      - redis
+    ports:
+      - "8081:8081"
+    environment:
+      REDIS_HOSTS: local:redis:6379

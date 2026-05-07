@@ -1,19 +1,19 @@
-"""Kafka producer for Reddit comments streaming."""
+"""Producer entry point — streams Reddit comments to a message broker."""
 
-import json
-import time
+import logging
 import os
 import sys
-import logging
+import time
+
 from dotenv import load_dotenv
 import praw
-from kafka import KafkaProducer
 from kafka.errors import KafkaError
 
-# Load environment variables from .env file
+from backend.infrastructure.messaging.broker_factory import create_broker
+from backend.infrastructure.messaging.message_broker import MessageBroker
+
 load_dotenv()
 
-# Setup logging
 logging.basicConfig(
     level=logging.INFO, format="%(asctime)s - %(levelname)s - %(message)s"
 )
@@ -36,7 +36,6 @@ def create_reddit_client():
             client_secret=get_required_env("REDDIT_CLIENT_SECRET"),
             user_agent=get_required_env("REDDIT_USER_AGENT"),
         )
-        # Test the connection
         reddit.user.me()
         logger.info("Reddit API connection established")
         return reddit
@@ -45,28 +44,10 @@ def create_reddit_client():
         sys.exit(1)
 
 
-def create_kafka_producer():
-    """Create and return Kafka producer."""
-    try:
-        producer = KafkaProducer(
-            bootstrap_servers=os.getenv(
-                "KAFKA_BOOTSTRAP_SERVERS", "localhost:9092"
-            ),
-            value_serializer=lambda v: json.dumps(v).encode("utf-8"),
-            request_timeout_ms=30000,
-            retries=3,
-        )
-        logger.info("Kafka producer created successfully")
-        return producer
-    except KafkaError as e:
-        logger.error(f"Failed to create Kafka producer: {e}")
-        sys.exit(1)
-
-
-def main():
+def main(broker: MessageBroker | None = None) -> None:
     """Main producer loop."""
     reddit = create_reddit_client()
-    producer = create_kafka_producer()
+    broker = broker or create_broker()
 
     subreddit = reddit.subreddit("AskReddit")
     logger.info("Starting to stream comments from r/AskReddit...")
@@ -74,22 +55,15 @@ def main():
     try:
         for comment in subreddit.stream.comments(skip_existing=True):
             try:
-                message = {"text": comment.body}
-                future = producer.send("reddit-comments", value=message)
-
-                # Wait for send to complete (optional, for error checking)
-                future.get(timeout=10)
-
-                logger.info(f"Sent comment: {message['text'][:50]}...")
-                time.sleep(1)  # Throttle to avoid rate limits
-
+                broker.publish("reddit-comments", {"text": comment.body})
+                logger.info(f"Sent comment: {comment.body[:50]}...")
+                time.sleep(1)
             except KafkaError as e:
-                logger.error(f"Failed to send message to Kafka: {e}")
+                logger.error(f"Failed to publish to Kafka: {e}")
                 continue
             except Exception as e:
                 logger.error(f"Error processing comment: {e}")
                 continue
-
     except KeyboardInterrupt:
         logger.info("Shutdown requested... exiting gracefully")
     except praw.exceptions.APIException as e:
@@ -97,9 +71,8 @@ def main():
     except Exception as e:
         logger.error(f"Unexpected error occurred: {e}")
     finally:
-        logger.info("Flushing and closing Kafka producer...")
-        producer.flush()
-        producer.close()
+        logger.info("Closing broker...")
+        broker.close()
         logger.info("Producer shutdown complete")
 
 

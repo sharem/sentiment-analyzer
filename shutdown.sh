@@ -29,8 +29,8 @@ kill_processes() {
 }
 
 # 1. Stop Python services (using module paths now)
-kill_processes "python.*-m data_pipeline\.producer" "Reddit Producer"
-kill_processes "python.*-m data_pipeline\.consumer" "Sentiment Consumer"
+kill_processes "python.*-m backend\.infrastructure\.pipeline\.producer" "Reddit Producer"
+kill_processes "python.*-m backend\.infrastructure\.pipeline\.consumer" "Sentiment Consumer"
 kill_processes "python.*-m backend\.infrastructure\.api\.app" "Backend API"
 
 # 2. Stop frontend
@@ -40,9 +40,7 @@ kill_processes "node.*astro" "Frontend Dashboard"
 # 3. Stop Docker services
 echo ""
 echo "🐳 Stopping Docker services..."
-cd data_pipeline 2>/dev/null || true
 docker-compose down --volumes --remove-orphans > /dev/null 2>&1 || true
-cd .. 2>/dev/null || true
 echo "  ✓ Kafka & Zookeeper stopped"
 
 # 4. Clean up log files

@@ -77,25 +77,21 @@ fi
 echo ""
 echo "🐳 Docker Services:"
 echo "------------------"
-cd data_pipeline 2>/dev/null || true
-if docker-compose ps | grep -q "Up"; then
-    docker-compose ps | grep -E "(kafka|zookeeper)" | while read line; do
-        if echo "$line" | grep -q "Up"; then
-            service_name=$(echo "$line" | awk '{print $1}')
-            echo "✅ $service_name: RUNNING"
-        fi
+if docker-compose ps 2>/dev/null | grep -q "Up"; then
+    docker-compose ps | grep "Up" | while read line; do
+        service_name=$(echo "$line" | awk '{print $1}')
+        echo "✅ $service_name: RUNNING"
     done
 else
-    echo "❌ Kafka & Zookeeper: NOT RUNNING"
+    echo "❌ No broker containers running"
 fi
-cd .. 2>/dev/null || true
 
 echo ""
 echo "🐍 Python Services:"
 echo "------------------"
 check_process "python.*-m backend\.infrastructure\.api\.app" "Backend API"
-check_process "python.*-m data_pipeline\.consumer" "Sentiment Consumer"
-check_process "python.*-m data_pipeline\.producer" "Reddit Producer"
+check_process "python.*-m backend\.infrastructure\.pipeline\.consumer" "Sentiment Consumer"
+check_process "python.*-m backend\.infrastructure\.pipeline\.producer" "Reddit Producer"
 
 echo ""
 echo "🌐 Frontend Service:"

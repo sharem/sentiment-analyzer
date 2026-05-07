@@ -20,7 +20,7 @@ from backend.infrastructure.api.responses import (
     SentimentCountsResponse,
     StatsResponse,
 )
-from backend.infrastructure.repositories import comment_repository as _repo
+from backend.infrastructure.dependencies import get_repository
 
 load_dotenv()
 
@@ -42,11 +42,6 @@ app.add_exception_handler(HealthCheckError, exception_handlers.health_check_erro
 app.add_exception_handler(StarletteHTTPException, exception_handlers.log_http_exception)
 app.add_exception_handler(RequestValidationError, exception_handlers.log_validation_error)
 app.add_exception_handler(Exception, exception_handlers.handle_exception)
-
-
-# Dependency injection for repository (TODO: consider putting this in a separate file)
-def get_repository() -> CommentRepository:
-    return _repo
 
 
 @app.middleware("http")

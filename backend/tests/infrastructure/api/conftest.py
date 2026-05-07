@@ -2,7 +2,8 @@ import pytest
 from unittest.mock import MagicMock
 from fastapi.testclient import TestClient
 
-from backend.infrastructure.api.app import app, get_repository
+from backend.infrastructure.api.app import app
+from backend.infrastructure.dependencies import get_repository
 
 
 @pytest.fixture
