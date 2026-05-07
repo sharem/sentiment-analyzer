@@ -5,12 +5,13 @@ import os
 from typing import Any
 
 from dotenv import load_dotenv
-from fastapi import FastAPI, Query, Request
+from fastapi import Depends, FastAPI, Query, Request
 from fastapi.exceptions import RequestValidationError
 from fastapi.middleware.cors import CORSMiddleware
 from starlette.exceptions import HTTPException as StarletteHTTPException
 
 from backend.domain.comment import Comment
+from backend.domain.comment_repository import CommentRepository
 from backend.infrastructure.api import exception_handlers
 from backend.infrastructure.api.exception_handlers import HealthCheckError
 from backend.infrastructure.api.schemas import (
@@ -19,7 +20,7 @@ from backend.infrastructure.api.schemas import (
     SentimentCountsResponse,
     StatsResponse,
 )
-from backend.infrastructure.repositories import comment_repository
+from backend.infrastructure.repositories import comment_repository as _repo
 
 load_dotenv()
 
@@ -43,6 +44,10 @@ app.add_exception_handler(RequestValidationError, exception_handlers.log_validat
 app.add_exception_handler(Exception, exception_handlers.handle_exception)
 
 
+def get_repository() -> CommentRepository:
+    return _repo
+
+
 @app.middleware("http")
 async def security_headers(request: Request, call_next) -> Any:
     response = await call_next(request)
@@ -55,19 +60,22 @@ async def security_headers(request: Request, call_next) -> Any:
 
 
 @app.get("/api/sentiment", response_model=SentimentCountsResponse)
-def sentiment_data() -> dict[str, int]:
-    return comment_repository.get_sentiment_counts()
+def sentiment_data(repo: CommentRepository = Depends(get_repository)) -> dict[str, int]:
+    return repo.get_sentiment_counts()
 
 
 @app.get("/api/comments", response_model=list[CommentResponse])
-def comments(limit: int = Query(default=10, ge=1, le=100)) -> list[Comment]:
-    return comment_repository.get_recent_comments(limit)
+def comments(
+    limit: int = Query(default=10, ge=1, le=100),
+    repo: CommentRepository = Depends(get_repository),
+) -> list[Comment]:
+    return repo.get_recent_comments(limit)
 
 
 @app.get("/health", response_model=HealthResponse)
-def health() -> HealthResponse:
+def health(repo: CommentRepository = Depends(get_repository)) -> HealthResponse:
     try:
-        comment_repository.get_sentiment_counts()
+        repo.get_sentiment_counts()
         return HealthResponse(status="healthy")
     except Exception as e:
         logger.exception("Health check failed: %s", str(e))
@@ -75,8 +83,8 @@ def health() -> HealthResponse:
 
 
 @app.get("/api/stats", response_model=StatsResponse)
-def stats() -> dict[str, Any]:
-    return comment_repository.get_stats()
+def stats(repo: CommentRepository = Depends(get_repository)) -> dict[str, Any]:
+    return repo.get_stats()
 
 
 if __name__ == "__main__":
