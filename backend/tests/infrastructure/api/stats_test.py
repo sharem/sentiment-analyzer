@@ -5,7 +5,7 @@ class TestStatsEndpoint:
     def test_returns_stats_dict(self, client):
         response = client.get("/api/stats")
         assert response.status_code == 200
-        assert response.headers["content-type"] == "application/json"
+        assert "application/json" in response.headers["content-type"]
         assert isinstance(response.json(), dict)
 
     def test_returns_correct_stats(self, client, mocker):

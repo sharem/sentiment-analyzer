@@ -1,3 +1,5 @@
+from datetime import datetime
+
 from backend.domain.comment import Comment, Sentiment
 
 
@@ -22,13 +24,13 @@ class TestCommentsEndpoint:
                 text="Test comment 1",
                 sentiment=Sentiment.POSITIVE,
                 polarity=0.5,
-                timestamp="2024-01-01T00:00:00",
+                timestamp=datetime(2024, 1, 1, 0, 0, 0),
             ),
             Comment(
                 text="Test comment 2",
                 sentiment=Sentiment.NEGATIVE,
                 polarity=-0.3,
-                timestamp="2024-01-01T00:00:01",
+                timestamp=datetime(2024, 1, 1, 0, 0, 1),
             ),
         ]
         data = client.get("/api/comments?limit=2").json()

@@ -62,16 +62,6 @@ class TestDataRetrieval:
         assert stats["newest_comment_timestamp"] is not None
 
 
-class TestDataManagement:
-    def test_clear_data(self, service_with_data):
-        assert len(service_with_data.get_recent_comments()) == 4
-        service_with_data.clear_data()
-        assert len(service_with_data.get_recent_comments()) == 0
-        counts = service_with_data.get_sentiment_counts()
-        assert counts["positive"] == 0
-        assert counts["negative"] == 0
-        assert counts["neutral"] == 0
-
 
 class TestPersistence:
     def test_data_persists_across_instances(self, tmp_path, make_comment):

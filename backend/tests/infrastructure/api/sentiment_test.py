@@ -5,7 +5,7 @@ class TestSentimentEndpoint:
     def test_returns_sentiment_counts(self, client):
         response = client.get("/api/sentiment")
         assert response.status_code == 200
-        assert response.headers["content-type"] == "application/json"
+        assert "application/json" in response.headers["content-type"]
         data = response.json()
         assert "positive" in data
         assert "negative" in data

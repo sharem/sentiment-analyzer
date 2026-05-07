@@ -22,5 +22,5 @@ def analyze_sentiment(text: str) -> Comment:
         text=text,
         sentiment=classify_polarity(polarity),
         polarity=polarity,
-        timestamp=datetime.now().isoformat(),
+        timestamp=datetime.now(),
     )

@@ -21,13 +21,16 @@ sentiment-analyzer/
 │   │   └── sentiment_service.py        # Sentiment classification domain service
 │   ├── infrastructure/
 │   │   ├── api/
-│   │   │   └── app.py                  # FastAPI adapter (HTTP driving adapter)
+│   │   │   ├── app.py                  # FastAPI adapter — routes and middleware
+│   │   │   ├── exception_handlers.py   # Centralised exception handlers
+│   │   │   └── schemas.py              # Pydantic response models
 │   │   └── repositories/
 │   │       └── sqlite_repository.py    # SQLite adapter (repository implementation)
 │   └── tests/
-│       ├── application/                # API endpoint tests
 │       ├── domain/                     # Domain logic tests
-│       └── infrastructure/             # Repository integration tests
+│       └── infrastructure/
+│           ├── api/                    # API endpoint tests
+│           └── repositories/          # Repository integration tests
 ├── data_pipeline/
 │   ├── producer.py                     # Reddit → Kafka (primary adapter)
 │   ├── consumer.py                     # Kafka → domain → repository (primary adapter)
@@ -106,6 +109,7 @@ sentiment-analyzer/
 
 ### Backend Infrastructure (`backend/infrastructure/`)
 - **FastAPI** — HTTP adapter exposing `/api/sentiment`, `/api/comments`, `/api/stats`, `/health`. Auto-generates OpenAPI docs at `/docs`.
+- **Pydantic schemas** — `CommentResponse`, `SentimentCountsResponse`, `StatsResponse`, `HealthResponse` define and validate all API response shapes.
 - **SQLiteCommentRepository** — repository adapter with circular buffer (100 comments default) and WAL mode
 
 ### Data Pipeline (`data_pipeline/`)
@@ -129,8 +133,8 @@ pytest
 
 # Specific layers
 pytest backend/tests/domain/
-pytest backend/tests/application/
-pytest backend/tests/infrastructure/
+pytest backend/tests/infrastructure/api/
+pytest backend/tests/infrastructure/repositories/
 pytest data_pipeline/tests/
 
 # Verbose

@@ -2,7 +2,7 @@
 
 import logging
 import os
-from dataclasses import asdict
+from typing import Any
 
 from dotenv import load_dotenv
 from fastapi import FastAPI, Query, Request
@@ -10,8 +10,15 @@ from fastapi.exceptions import RequestValidationError
 from fastapi.middleware.cors import CORSMiddleware
 from starlette.exceptions import HTTPException as StarletteHTTPException
 
+from backend.domain.comment import Comment
 from backend.infrastructure.api import exception_handlers
 from backend.infrastructure.api.exception_handlers import HealthCheckError
+from backend.infrastructure.api.schemas import (
+    CommentResponse,
+    HealthResponse,
+    SentimentCountsResponse,
+    StatsResponse,
+)
 from backend.infrastructure.repositories import comment_repository
 
 load_dotenv()
@@ -37,7 +44,7 @@ app.add_exception_handler(Exception, exception_handlers.handle_exception)
 
 
 @app.middleware("http")
-async def security_headers(request: Request, call_next):
+async def security_headers(request: Request, call_next) -> Any:
     response = await call_next(request)
     response.headers["X-Content-Type-Options"] = "nosniff"
     response.headers["X-Frame-Options"] = "DENY"
@@ -47,28 +54,28 @@ async def security_headers(request: Request, call_next):
     return response
 
 
-@app.get("/api/sentiment")
-def sentiment_data():
+@app.get("/api/sentiment", response_model=SentimentCountsResponse)
+def sentiment_data() -> dict[str, int]:
     return comment_repository.get_sentiment_counts()
 
 
-@app.get("/api/comments")
-def comments(limit: int = Query(default=10, ge=1, le=100)):
-    return [asdict(c) for c in comment_repository.get_recent_comments(limit)]
+@app.get("/api/comments", response_model=list[CommentResponse])
+def comments(limit: int = Query(default=10, ge=1, le=100)) -> list[Comment]:
+    return comment_repository.get_recent_comments(limit)
 
 
-@app.get("/health")
-def health():
+@app.get("/health", response_model=HealthResponse)
+def health() -> HealthResponse:
     try:
         comment_repository.get_sentiment_counts()
-        return {"status": "healthy"}
+        return HealthResponse(status="healthy")
     except Exception as e:
         logger.exception("Health check failed: %s", str(e))
         raise HealthCheckError(str(e))
 
 
-@app.get("/api/stats")
-def stats():
+@app.get("/api/stats", response_model=StatsResponse)
+def stats() -> dict[str, Any]:
     return comment_repository.get_stats()
 
 
