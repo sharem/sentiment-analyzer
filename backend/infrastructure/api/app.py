@@ -81,20 +81,15 @@ def set_monitor(
     return MonitorConfigResponse(subreddit=target.subreddit, post_id=target.post_id)
 
 
-def _matches_filter(event_data: dict, subreddit: str | None) -> bool:
-    return subreddit is None or event_data.get("subreddit") == subreddit
-
-
 @app.get("/api/stream")
 async def stream(
-    subreddit: str | None = Query(default=None),
     live_stream: LiveEventStream = Depends(get_live_stream),
 ) -> StreamingResponse:
     async def event_generator():
         async for data in live_stream.subscribe(COMMENTS_LIVE_CHANNEL):
             if data is None:
                 yield ": keepalive\n\n"
-            elif _matches_filter(data, subreddit):
+            else:
                 yield f"event: comment\ndata: {json.dumps(data)}\n\n"
 
     return StreamingResponse(
