@@ -1,6 +1,8 @@
 # Sentiment Analyzer
 
-A real-time sentiment analysis pipeline that streams Reddit comments through a message broker, performs NLP sentiment analysis, and displays results in a live web dashboard. Select a subreddit or specific post to start monitoring — the dashboard appears once a target is chosen, and switching targets clears the data for a clean session.
+A real-time sentiment analysis pipeline that streams Reddit comments through a message broker, performs NLP sentiment analysis, and displays results in a live web dashboard. Select a subreddit or post to start monitoring. The dashboard appears once a target is chosen, and switching targets resets the data for a clean session.
+
+> **Note:** This project is built for educational purposes. It serves as a hands-on exploration of Hexagonal Architecture (Ports & Adapters), FastAPI, and working with Python and Redis/Kafka. As a result, some design decisions may prioritise learning and experimentation over production-ready conventions. 🙇‍♀️
 
 ## Architecture
 
@@ -16,7 +18,7 @@ Reddit API → Producer → [reddit-comments topic] → Consumer → SQLite
                                             FastAPI /api/stream → Browser (SSE)
 ```
 
-The backend follows **Hexagonal Architecture (Ports & Adapters)** with a strict three-layer dependency rule: domain imports nothing, application imports only domain, infrastructure imports both.
+The backend follows **Hexagonal Architecture (Ports & Adapters)** with strict dependency direction: domain → application → infrastructure.
 
 - **Domain** — pure entities and value objects; no ports, no framework imports
 - **Application** — use cases + driven ports (ABCs); depends only on domain
@@ -24,7 +26,7 @@ The backend follows **Hexagonal Architecture (Ports & Adapters)** with a strict 
 
 Swapping SQLite → PostgreSQL, Kafka → Redis, or TextBlob → another NLP library requires changing only the adapter, not the business logic.
 
-> **Note:** Kafka is intentionally overengineered for this scale. Redis Pub/Sub is the default; Kafka is available if you want to explore it.
+> **Note:** Kafka is intentionally overengineered for this scale. Redis Pub/Sub is the default; Kafka is included for exploration.
 
 ## Project Structure
 
@@ -140,67 +142,6 @@ sentiment-analyzer/
 ./shutdown.sh   # Stop all services
 ./status.sh     # Check service status
 ```
-
-## Components
-
-### Domain (`backend/domain/`)
-
-Pure Python — entities and value objects only, no ports or framework imports.
-
-| File | Purpose |
-|---|---|
-| `comment.py` | `Comment` entity and `Sentiment` enum |
-| `monitor_target.py` | `MonitorTarget` value object |
-
-### Application (`backend/application/`)
-
-**Ports** (`ports/`) — driven port ABCs with no infrastructure dependencies:
-
-| File | Purpose |
-|---|---|
-| `comment_repository.py` | Persist and query comments |
-| `comment_publisher.py` | Broadcast a processed comment |
-| `sentiment_analyzer.py` | Classify text into sentiment + polarity |
-| `monitor_repository.py` | Read/write the active monitor target |
-| `live_stream.py` | Subscribe to the SSE event stream |
-| `subreddit_resolver.py` | Resolve a subreddit canonical name; defines `SubredditNotFoundError` |
-
-**Use cases:**
-- **`ProcessCommentService`** — given a raw message dict, calls `SentimentAnalyzer`, builds a `Comment`, persists it via `CommentRepository`, and notifies via `CommentPublisher`
-- **`ConfigureMonitorService`** — validates a subreddit name via `SubredditResolver`, clears the comment DB, and writes the new target via `MonitorRepository`
-
-### Infrastructure (`backend/infrastructure/`)
-
-**API adapter** — FastAPI routes expose:
-- `GET /api/sentiment` — sentiment counts for the current session
-- `GET /api/comments` — recent comments (`?limit`, default 10)
-- `GET /api/monitor` / `POST /api/monitor` — read/set the active monitor target; POST delegates to `ConfigureMonitorService`
-- `GET /api/stream` — SSE stream of live processed comments
-- `GET /health` — health check
-
-**Messaging:**
-- `MessageBroker` (ABC) + `BrokerError` — broker port; adapters translate transport errors so callers are broker-agnostic
-- `KafkaBroker` — exponential-backoff retry on connection
-- `RedisBroker` — Redis Pub/Sub as a message queue
-- `RedisLiveStream` — implements both `LiveEventStream` (subscribe) and `CommentPublisher` (publish) over the same Redis channel
-
-**Reddit:**
-- `HttpSubredditResolver` — implements `SubredditResolver` by calling Reddit's public `about.json` endpoint; returns the canonical display name or raises `SubredditNotFoundError`
-
-**Repositories:**
-- `SQLiteCommentRepository` — WAL mode, circular buffer (100 comments)
-- `RedisMonitorRepository` — JSON-serialised monitor config stored in Redis
-
-**NLP:**
-- `TextBlobSentimentAnalyzer` — implements `SentimentAnalyzer` using TextBlob; polarity thresholds at ±0.1
-
-### Frontend (`frontend/`)
-
-Astro + React. Connects to the SSE endpoint on load via `EventSource`; no polling.
-
-- **MonitorControl** — setup screen on first load; prompts for a subreddit or post to monitor; shows the active target once set with an option to switch
-- **SentimentChart** — live pie chart, updates on each SSE event; shows "Waiting for comments…" until the first event arrives
-- **RecentComments** — live comment feed, newest first, updates on each SSE event
 
 ## Development
 
