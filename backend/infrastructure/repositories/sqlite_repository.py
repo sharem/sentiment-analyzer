@@ -4,7 +4,7 @@ import sqlite3
 from datetime import datetime
 
 from backend.domain.comment import Comment, Sentiment
-from backend.domain.comment_repository import CommentRepository
+from backend.application.ports.comment_repository import CommentRepository
 
 logger = logging.getLogger(__name__)
 

@@ -7,7 +7,7 @@ import time
 from dotenv import load_dotenv
 import praw
 
-from backend.domain.monitor_repository import MonitorRepository
+from backend.application.ports.monitor_repository import MonitorRepository
 from backend.domain.monitor_target import MonitorTarget
 from backend.infrastructure.dependencies import get_monitor_repository
 from backend.infrastructure.messaging.broker_factory import create_broker

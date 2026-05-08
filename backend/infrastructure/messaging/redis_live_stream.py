@@ -4,10 +4,10 @@ import json
 import redis
 import redis.asyncio as aioredis
 
+from backend.application.ports.comment_publisher import CommentPublisher
+from backend.application.ports.live_stream import LiveEventStream
 from backend.domain.comment import Comment
-from backend.domain.comment_publisher import CommentPublisher
 from backend.infrastructure.messaging.channels import COMMENTS_LIVE_CHANNEL
-from backend.infrastructure.messaging.live_stream import LiveEventStream
 
 
 class RedisLiveStream(LiveEventStream, CommentPublisher):

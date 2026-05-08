@@ -6,15 +6,19 @@ from functools import lru_cache
 
 import redis
 
-from backend.application.services import ProcessCommentService
-from backend.domain.comment_publisher import CommentPublisher
-from backend.domain.comment_repository import CommentRepository
-from backend.domain.monitor_repository import MonitorRepository
-from backend.domain.sentiment_analyzer import SentimentAnalyzer
-from backend.infrastructure.messaging.live_stream import LiveEventStream
+from fastapi import Depends
+
+from backend.application.configure_monitor_service import ConfigureMonitorService
+from backend.application.ports.comment_publisher import CommentPublisher
+from backend.application.ports.comment_repository import CommentRepository
+from backend.application.ports.live_stream import LiveEventStream
+from backend.application.ports.monitor_repository import MonitorRepository
+from backend.application.ports.sentiment_analyzer import SentimentAnalyzer
+from backend.application.ports.subreddit_resolver import SubredditResolver
+from backend.application.process_comment_service import ProcessCommentService
 from backend.infrastructure.messaging.redis_live_stream import RedisLiveStream
 from backend.infrastructure.nlp.textblob_analyzer import TextBlobSentimentAnalyzer
-from backend.infrastructure.reddit.subreddit_resolver import HttpSubredditResolver, SubredditResolver
+from backend.infrastructure.reddit.subreddit_resolver import HttpSubredditResolver
 from backend.infrastructure.repositories.redis_monitor_repository import RedisMonitorRepository
 from backend.infrastructure.repositories.sqlite_repository import SQLiteCommentRepository
 
@@ -58,6 +62,14 @@ def get_live_stream() -> LiveEventStream:
 
 def get_subreddit_resolver() -> SubredditResolver:
     return HttpSubredditResolver()
+
+
+def get_configure_monitor_service(
+    monitor_repo: MonitorRepository = Depends(get_monitor_repository),
+    comment_repo: CommentRepository = Depends(get_repository),
+    resolver: SubredditResolver = Depends(get_subreddit_resolver),
+) -> ConfigureMonitorService:
+    return ConfigureMonitorService(monitor_repo, comment_repo, resolver)
 
 
 def get_comment_publisher() -> CommentPublisher | None:

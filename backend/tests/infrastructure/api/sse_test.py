@@ -6,7 +6,7 @@ import pytest
 
 from backend.infrastructure.api.app import app
 from backend.infrastructure.dependencies import get_live_stream
-from backend.infrastructure.messaging.live_stream import LiveEventStream
+from backend.application.ports.live_stream import LiveEventStream
 
 
 def _make_stream(*events):

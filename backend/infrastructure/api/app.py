@@ -12,8 +12,11 @@ from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import StreamingResponse
 from starlette.exceptions import HTTPException as StarletteHTTPException
 
+from backend.application.configure_monitor_service import ConfigureMonitorService
+from backend.application.ports.comment_repository import CommentRepository
+from backend.application.ports.live_stream import LiveEventStream
+from backend.application.ports.subreddit_resolver import SubredditNotFoundError
 from backend.domain.comment import Comment
-from backend.domain.comment_repository import CommentRepository
 from backend.infrastructure.api import exception_handlers
 from backend.infrastructure.api.exception_handlers import HealthCheckError
 from backend.infrastructure.api.requests import MonitorConfigRequest
@@ -23,11 +26,9 @@ from backend.infrastructure.api.responses import (
     MonitorConfigResponse,
     SentimentCountsResponse,
 )
-from backend.domain.monitor_repository import MonitorRepository
-from backend.infrastructure.dependencies import get_live_stream, get_monitor_repository, get_repository, get_subreddit_resolver
-from backend.infrastructure.reddit.subreddit_resolver import SubredditNotFoundError, SubredditResolver
+from backend.application.ports.monitor_repository import MonitorRepository
+from backend.infrastructure.dependencies import get_configure_monitor_service, get_live_stream, get_monitor_repository, get_repository
 from backend.infrastructure.messaging.channels import COMMENTS_LIVE_CHANNEL
-from backend.infrastructure.messaging.live_stream import LiveEventStream
 
 load_dotenv()
 
@@ -71,20 +72,12 @@ def get_monitor(monitor_repo: MonitorRepository = Depends(get_monitor_repository
 @app.post("/api/monitor", response_model=MonitorConfigResponse)
 def set_monitor(
     body: MonitorConfigRequest,
-    monitor_repo: MonitorRepository = Depends(get_monitor_repository),
-    comment_repo: CommentRepository = Depends(get_repository),
-    resolver: SubredditResolver = Depends(get_subreddit_resolver),
+    service: ConfigureMonitorService = Depends(get_configure_monitor_service),
 ) -> MonitorConfigResponse:
     try:
-        canonical = resolver.resolve(body.subreddit)
+        target = service.execute(body.subreddit, body.post_id)
     except SubredditNotFoundError as e:
         raise HTTPException(status_code=400, detail=str(e))
-    comment_repo.clear()
-    target = monitor_repo.set(subreddit=canonical, post_id=body.post_id)
-    logger.info(
-        f"Monitor target updated: r/{canonical}"
-        + (f" post={target.post_id}" if target.post_id else "")
-    )
     return MonitorConfigResponse(subreddit=target.subreddit, post_id=target.post_id)
 
 
