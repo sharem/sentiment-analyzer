@@ -15,3 +15,4 @@ class Comment:
     sentiment: Sentiment
     polarity: float
     timestamp: datetime
+    subreddit: str = "unknown"

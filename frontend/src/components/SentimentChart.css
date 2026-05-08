@@ -48,6 +48,16 @@
   font-weight: 600;
   display: flex;
   align-items: center;
+  gap: 8px;
+}
+
+.chart-subreddit-badge {
+  font-size: 0.7rem;
+  font-weight: 500;
+  background: linear-gradient(135deg, #667eea, #764ba2);
+  color: white;
+  padding: 2px 8px;
+  border-radius: 10px;
 }
 
 .sentiment-chart-controls {

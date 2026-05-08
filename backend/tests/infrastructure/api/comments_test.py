@@ -32,7 +32,7 @@ class TestCommentsEndpoint:
         data = client.get("/api/comments?limit=2").json()
         assert len(data) == 2
         assert data[0]["text"] == "Test comment 1"
-        mock_repo.get_recent_comments.assert_called_once_with(2)
+        mock_repo.get_recent_comments.assert_called_once_with(2, subreddit=None)
 
     def test_returns_500_on_error(self, client, mock_repo):
         mock_repo.get_recent_comments.side_effect = Exception("db error")

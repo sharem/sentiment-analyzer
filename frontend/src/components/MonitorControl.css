@@ -1,0 +1,153 @@
+.monitor-control {
+  background: white;
+  border-radius: 12px;
+  box-shadow: 0 4px 6px rgba(0, 0, 0, 0.05);
+  padding: 16px 20px;
+  display: flex;
+  align-items: center;
+  gap: 24px;
+  flex-wrap: wrap;
+  margin-bottom: 24px;
+}
+
+.monitor-status {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  white-space: nowrap;
+  flex-shrink: 0;
+}
+
+.monitor-dot {
+  width: 9px;
+  height: 9px;
+  border-radius: 50%;
+  background-color: #10B981;
+  flex-shrink: 0;
+  animation: pulse 2s ease-in-out infinite;
+}
+
+@keyframes pulse {
+  0%, 100% { opacity: 1; }
+  50%       { opacity: 0.4; }
+}
+
+.monitor-current-label {
+  font-size: 0.875rem;
+  color: #374151;
+}
+
+.monitor-current-label strong {
+  color: #111827;
+}
+
+.monitor-form {
+  flex: 1;
+  min-width: 0;
+}
+
+.monitor-inputs {
+  display: flex;
+  gap: 8px;
+  align-items: center;
+  flex-wrap: wrap;
+}
+
+.monitor-subreddit-wrap {
+  display: flex;
+  align-items: center;
+  border: 1px solid #D1D5DB;
+  border-radius: 6px;
+  overflow: hidden;
+  background: #F9FAFB;
+  transition: border-color 0.15s ease;
+}
+
+.monitor-subreddit-wrap:focus-within {
+  border-color: #667eea;
+  background: white;
+}
+
+.monitor-prefix {
+  padding: 0 6px 0 10px;
+  font-size: 0.875rem;
+  color: #6B7280;
+  user-select: none;
+}
+
+.monitor-input {
+  padding: 7px 10px 7px 2px;
+  border: none;
+  background: transparent;
+  font-size: 0.875rem;
+  color: #111827;
+  outline: none;
+  min-width: 100px;
+}
+
+.monitor-input-post {
+  padding: 7px 10px;
+  border: 1px solid #D1D5DB;
+  border-radius: 6px;
+  background: #F9FAFB;
+  font-size: 0.875rem;
+  color: #111827;
+  outline: none;
+  min-width: 140px;
+  transition: border-color 0.15s ease, background 0.15s ease;
+}
+
+.monitor-input-post:focus {
+  border-color: #667eea;
+  background: white;
+}
+
+.monitor-input-post::placeholder,
+.monitor-input::placeholder {
+  color: #9CA3AF;
+}
+
+.monitor-button {
+  padding: 7px 18px;
+  background: linear-gradient(135deg, #667eea, #764ba2);
+  color: white;
+  border: none;
+  border-radius: 6px;
+  font-size: 0.875rem;
+  font-weight: 500;
+  cursor: pointer;
+  white-space: nowrap;
+  transition: opacity 0.15s ease;
+}
+
+.monitor-button:hover:not(:disabled) {
+  opacity: 0.88;
+}
+
+.monitor-button:disabled {
+  cursor: not-allowed;
+  opacity: 0.55;
+}
+
+.monitor-error {
+  margin: 8px 0 0;
+  font-size: 0.75rem;
+  color: #EF4444;
+}
+
+@media (max-width: 640px) {
+  .monitor-control {
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 12px;
+  }
+
+  .monitor-inputs {
+    width: 100%;
+  }
+
+  .monitor-input-post {
+    min-width: 0;
+    flex: 1;
+  }
+}
