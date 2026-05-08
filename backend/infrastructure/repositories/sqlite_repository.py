@@ -143,15 +143,6 @@ class SQLiteCommentRepository(CommentRepository):
                        MAX(created_at) as newest
                 FROM comments {where}
             """, params).fetchone()
-            count_rows = conn.execute(f"""
-                SELECT sentiment, COUNT(*) as count
-                FROM comments {where}
-                GROUP BY sentiment
-            """, params).fetchall()
-
-        counts: dict[str, int] = {s.value: 0 for s in Sentiment}
-        for r in count_rows:
-            counts[r["sentiment"]] = r["count"]
 
         return {
             "total_comments": row["total"],
@@ -161,5 +152,5 @@ class SQLiteCommentRepository(CommentRepository):
             "newest_comment_timestamp": (
                 datetime.fromisoformat(row["newest"]) if row["newest"] else None
             ),
-            "sentiment_counts": counts,
+            "sentiment_counts": self.get_sentiment_counts(subreddit=subreddit),
         }
