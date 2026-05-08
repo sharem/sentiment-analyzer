@@ -20,13 +20,16 @@ export default function MonitorControl({ onTargetChanged, activeTarget = null, i
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ subreddit: sub, post_id: postIdInput.trim() || null }),
       });
-      if (!res.ok) throw new Error(`HTTP ${res.status}`);
+      if (!res.ok) {
+        const body = await res.json().catch(() => ({}));
+        throw new Error(body.detail || `HTTP ${res.status}`);
+      }
       const data = await res.json();
       setSubredditInput('');
       setPostIdInput('');
       onTargetChanged?.(data);
-    } catch {
-      setError('Failed to update — check the subreddit name and try again.');
+    } catch (e) {
+      setError(e.message || 'Failed to update — check the subreddit name and try again.');
     } finally {
       setSubmitting(false);
     }

@@ -33,7 +33,7 @@ class TestCircularBuffer:
         comments = service.get_recent_comments()
         assert len(comments) == 5
         assert [c.text for c in comments] == [
-            f"Comment {i}" for i in range(2, 7)
+            f"Comment {i}" for i in range(6, 1, -1)
         ]
         assert service.get_sentiment_counts()["positive"] == 5
 
@@ -74,5 +74,5 @@ class TestEdgeCases:
         service.add_comment(make_comment("Extreme negative", "negative", -1.0))
         comments = service.get_recent_comments()
         assert len(comments) == 2
-        assert comments[0].polarity == 1.0
-        assert comments[1].polarity == -1.0
+        assert comments[0].polarity == -1.0
+        assert comments[1].polarity == 1.0

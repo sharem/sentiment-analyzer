@@ -73,19 +73,16 @@ class SQLiteCommentRepository(CommentRepository):
             if limit is not None:
                 rows = conn.execute("""
                     SELECT text, sentiment, polarity, created_at as timestamp, subreddit
-                    FROM (
-                        SELECT text, sentiment, polarity, created_at, id, subreddit
-                        FROM comments
-                        ORDER BY created_at DESC, id DESC
-                        LIMIT ?
-                    ) ORDER BY created_at ASC, id ASC
+                    FROM comments
+                    ORDER BY created_at DESC, id DESC
+                    LIMIT ?
                 """, (limit,)).fetchall()
             else:
                 rows = conn.execute("""
                     SELECT text, sentiment, polarity,
                            created_at as timestamp, subreddit
                     FROM comments
-                    ORDER BY created_at ASC, id ASC
+                    ORDER BY created_at DESC, id DESC
                 """).fetchall()
         return [
             Comment(

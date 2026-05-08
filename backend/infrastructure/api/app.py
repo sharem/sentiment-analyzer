@@ -3,11 +3,10 @@
 import json
 import logging
 import os
-
 from typing import Any
 
 from dotenv import load_dotenv
-from fastapi import Depends, FastAPI, Query, Request
+from fastapi import Depends, FastAPI, HTTPException, Query, Request
 from fastapi.exceptions import RequestValidationError
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import StreamingResponse
@@ -25,7 +24,8 @@ from backend.infrastructure.api.responses import (
     SentimentCountsResponse,
 )
 from backend.domain.monitor_repository import MonitorRepository
-from backend.infrastructure.dependencies import get_live_stream, get_monitor_repository, get_repository
+from backend.infrastructure.dependencies import get_live_stream, get_monitor_repository, get_repository, get_subreddit_resolver
+from backend.infrastructure.reddit.subreddit_resolver import SubredditNotFoundError, SubredditResolver
 from backend.infrastructure.messaging.channels import COMMENTS_LIVE_CHANNEL
 from backend.infrastructure.messaging.live_stream import LiveEventStream
 
@@ -73,11 +73,16 @@ def set_monitor(
     body: MonitorConfigRequest,
     monitor_repo: MonitorRepository = Depends(get_monitor_repository),
     comment_repo: CommentRepository = Depends(get_repository),
+    resolver: SubredditResolver = Depends(get_subreddit_resolver),
 ) -> MonitorConfigResponse:
+    try:
+        canonical = resolver.resolve(body.subreddit)
+    except SubredditNotFoundError as e:
+        raise HTTPException(status_code=400, detail=str(e))
     comment_repo.clear()
-    target = monitor_repo.set(subreddit=body.subreddit, post_id=body.post_id)
+    target = monitor_repo.set(subreddit=canonical, post_id=body.post_id)
     logger.info(
-        f"Monitor target updated: r/{target.subreddit}"
+        f"Monitor target updated: r/{canonical}"
         + (f" post={target.post_id}" if target.post_id else "")
     )
     return MonitorConfigResponse(subreddit=target.subreddit, post_id=target.post_id)

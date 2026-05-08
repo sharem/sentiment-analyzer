@@ -1,6 +1,6 @@
 # Sentiment Analyzer
 
-A real-time sentiment analysis pipeline that streams Reddit comments through a message broker, performs NLP sentiment analysis, and displays results in a live web dashboard. The monitored subreddit or post can be changed at runtime without restarting any service.
+A real-time sentiment analysis pipeline that streams Reddit comments through a message broker, performs NLP sentiment analysis, and displays results in a live web dashboard. Select a subreddit or specific post to start monitoring — the dashboard appears once a target is chosen, and switching targets clears the data for a clean session.
 
 ## Architecture
 
@@ -151,10 +151,9 @@ Pure Python — no framework or infrastructure imports.
 ### Infrastructure (`backend/infrastructure/`)
 
 **API adapter** — FastAPI routes expose:
-- `GET /api/sentiment` — sentiment counts (optional `?subreddit` filter)
-- `GET /api/comments` — recent comments (optional `?subreddit` and `?limit`)
-- `GET /api/stats` — aggregate stats
-- `GET /api/monitor` / `POST /api/monitor` — read/update the active monitor target
+- `GET /api/sentiment` — sentiment counts for the current session
+- `GET /api/comments` — recent comments (`?limit`, default 10)
+- `GET /api/monitor` / `POST /api/monitor` — read/set the active monitor target; POST validates the subreddit against Reddit, normalises its case, and clears the DB
 - `GET /api/stream` — SSE stream of live processed comments
 - `GET /health` — health check
 
@@ -166,7 +165,7 @@ Pure Python — no framework or infrastructure imports.
 - `RedisLiveStream` — implements both `LiveEventStream` (subscribe) and `CommentPublisher` (publish) over the same Redis channel
 
 **Repositories:**
-- `SQLiteCommentRepository` — WAL mode, circular buffer (100 comments), runtime migration for schema changes
+- `SQLiteCommentRepository` — WAL mode, circular buffer (100 comments)
 - `RedisMonitorRepository` — JSON-serialised monitor config stored in Redis
 
 **NLP:**
@@ -176,9 +175,9 @@ Pure Python — no framework or infrastructure imports.
 
 Astro + React. Connects to the SSE endpoint on load via `EventSource`; no polling.
 
-- **MonitorControl** — shows the active subreddit, lets users switch target
-- **SentimentChart** — live pie chart, updates on each SSE event
-- **RecentComments** — live comment feed with subreddit badge per entry
+- **MonitorControl** — setup screen on first load; prompts for a subreddit or post to monitor; shows the active target once set with an option to switch
+- **SentimentChart** — live pie chart, updates on each SSE event; shows "Waiting for comments…" until the first event arrives
+- **RecentComments** — live comment feed, newest first, updates on each SSE event
 
 ## Development
 
@@ -225,7 +224,7 @@ cd frontend && npm run dev
 | Database path | `SENTIMENT_DB_PATH` | `sentiment.db` |
 | Circular buffer size | `SQLiteCommentRepository(max_comments=...)` | `100` |
 | Sentiment thresholds | `textblob_analyzer.py` | `±0.1 polarity` |
-| Default subreddit | `monitor_target.py` | `AskReddit` |
+| Default subreddit | — | None (user must select on first load) |
 | API port | `PORT` | `5000` |
 | CORS origins | `CORS_ORIGINS` | `http://localhost:4321` |
 
@@ -234,7 +233,7 @@ cd frontend && npm run dev
 ```bash
 tail -f logs/consumer.log
 curl -s http://localhost:5000/health
-curl -s http://localhost:5000/api/stats | jq
+curl -s http://localhost:5000/api/sentiment | jq
 ```
 
 ## Troubleshooting

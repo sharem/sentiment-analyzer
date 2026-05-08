@@ -14,6 +14,7 @@ from backend.domain.sentiment_analyzer import SentimentAnalyzer
 from backend.infrastructure.messaging.live_stream import LiveEventStream
 from backend.infrastructure.messaging.redis_live_stream import RedisLiveStream
 from backend.infrastructure.nlp.textblob_analyzer import TextBlobSentimentAnalyzer
+from backend.infrastructure.reddit.subreddit_resolver import HttpSubredditResolver, SubredditResolver
 from backend.infrastructure.repositories.redis_monitor_repository import RedisMonitorRepository
 from backend.infrastructure.repositories.sqlite_repository import SQLiteCommentRepository
 
@@ -53,6 +54,10 @@ def _get_redis_live_stream() -> RedisLiveStream:
 
 def get_live_stream() -> LiveEventStream:
     return _get_redis_live_stream()
+
+
+def get_subreddit_resolver() -> SubredditResolver:
+    return HttpSubredditResolver()
 
 
 def get_comment_publisher() -> CommentPublisher | None:
