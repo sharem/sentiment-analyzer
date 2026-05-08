@@ -1,3 +1,10 @@
+.dashboard-setup {
+  flex: 1;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
 .dashboard-wrapper {
   width: 100%;
   flex: 1;

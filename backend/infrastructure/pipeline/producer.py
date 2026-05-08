@@ -68,6 +68,16 @@ def _stream_subreddit(
     return current_target
 
 
+def _wait_for_target(monitor_repo: MonitorRepository) -> MonitorTarget:
+    """Block until a monitor target is configured."""
+    while True:
+        target = monitor_repo.get()
+        if target.subreddit is not None:
+            return target
+        logger.info("No monitor target set — waiting for configuration...")
+        time.sleep(5)
+
+
 def _poll_post(
     reddit, broker: MessageBroker, monitor_repo: MonitorRepository, current_target: MonitorTarget
 ) -> MonitorTarget:
@@ -114,16 +124,19 @@ def main(broker: MessageBroker | None = None, monitor_repo: MonitorRepository | 
     monitor_repo = monitor_repo or get_monitor_repository()
 
     try:
-        current_target = monitor_repo.get()
+        current_target = _wait_for_target(monitor_repo)
         logger.info(
             f"Starting producer — initial target: r/{current_target.subreddit}"
             + (f" post={current_target.post_id}" if current_target.post_id else "")
         )
         while True:
-            if current_target.post_id:
+            if current_target.subreddit is None:
+                current_target = _wait_for_target(monitor_repo)
+            elif current_target.post_id:
                 current_target = _poll_post(reddit, broker, monitor_repo, current_target)
             else:
                 current_target = _stream_subreddit(reddit, broker, monitor_repo, current_target)
+
     except KeyboardInterrupt:
         logger.info("Shutdown requested... exiting gracefully")
     except praw.exceptions.APIException as e:

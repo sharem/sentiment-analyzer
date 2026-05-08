@@ -1,7 +1,7 @@
 import json
 
 from backend.domain.monitor_repository import MonitorRepository
-from backend.domain.monitor_target import DEFAULT_SUBREDDIT, MonitorTarget
+from backend.domain.monitor_target import MonitorTarget
 
 _CONFIG_KEY = "monitor:config"
 
@@ -18,7 +18,7 @@ class RedisMonitorRepository(MonitorRepository):
             return MonitorTarget()
         data = json.loads(raw)
         return MonitorTarget(
-            subreddit=data.get("subreddit", DEFAULT_SUBREDDIT),
+            subreddit=data.get("subreddit"),
             post_id=data.get("post_id"),
         )
 

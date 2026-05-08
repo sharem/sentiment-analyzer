@@ -41,6 +41,13 @@
   color: #111827;
 }
 
+.monitor-setup-label {
+  font-size: 0.9rem;
+  color: #6B7280;
+  margin: 0 0 16px;
+  text-align: center;
+}
+
 .monitor-form {
   flex: 1;
   min-width: 0;
