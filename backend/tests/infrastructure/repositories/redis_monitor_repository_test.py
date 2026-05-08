@@ -3,20 +3,20 @@ from unittest.mock import MagicMock
 
 import pytest
 
-from backend.domain.monitor_target import DEFAULT_SUBREDDIT, MonitorTarget
+from backend.domain.monitor_target import MonitorTarget
 from backend.infrastructure.repositories.redis_monitor_repository import RedisMonitorRepository
 
 _CONFIG_KEY = "monitor:config"
 
 
 class TestGet:
-    def test_returns_default_when_key_absent(self):
+    def test_returns_null_subreddit_when_key_absent(self):
         mock_redis = MagicMock()
         mock_redis.get.return_value = None
 
         result = RedisMonitorRepository(mock_redis).get()
 
-        assert result.subreddit == DEFAULT_SUBREDDIT
+        assert result.subreddit is None
         assert result.post_id is None
 
     def test_parses_subreddit_from_stored_json(self):
@@ -35,13 +35,13 @@ class TestGet:
 
         assert result == MonitorTarget(subreddit="python", post_id="abc123")
 
-    def test_falls_back_to_default_subreddit_when_key_absent_in_json(self):
+    def test_returns_null_subreddit_when_key_absent_in_json(self):
         mock_redis = MagicMock()
         mock_redis.get.return_value = json.dumps({"post_id": None})
 
         result = RedisMonitorRepository(mock_redis).get()
 
-        assert result.subreddit == DEFAULT_SUBREDDIT
+        assert result.subreddit is None
 
 
 class TestSet:

@@ -3,7 +3,7 @@ import { Pie } from 'react-chartjs-2';
 import 'chart.js/auto';
 import './SentimentChart.css';
 
-export default function SentimentChart({ refreshKey = 0, onRefreshed, subreddit = null }) {
+export default function SentimentChart({ subreddit = null }) {
   const [sentimentCounts, setSentimentCounts] = useState({
     positive: 0,
     negative: 0,
@@ -12,40 +12,17 @@ export default function SentimentChart({ refreshKey = 0, onRefreshed, subreddit 
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
   const [lastUpdated, setLastUpdated] = useState(null);
-  const [isRefreshing, setIsRefreshing] = useState(false);
 
-  const fetchSentimentData = useCallback(async (isManual = false) => {
+  const fetchSentimentData = useCallback(async () => {
     try {
-      if (isManual) {
-        setError(null);
-      }
-
-      setIsRefreshing(true);
-
-      const url = subreddit
-        ? `/api/sentiment?subreddit=${encodeURIComponent(subreddit)}`
-        : '/api/sentiment';
-      const response = await fetch(url);
-      
-      if (!response.ok) {
-        throw new Error(`HTTP error! status: ${response.status}`);
-      }
-      
+      const response = await fetch('/api/sentiment');
+      if (!response.ok) throw new Error(`HTTP error! status: ${response.status}`);
       const sentimentData = await response.json();
-      console.log('Received sentiment data:', sentimentData);
-      
-      // Validate data structure
-      if (!sentimentData || typeof sentimentData !== 'object') {
-        throw new Error('Invalid data format received');
-      }
-
-      // Update only the counts, not the entire data structure
       setSentimentCounts({
         positive: sentimentData.positive || 0,
         negative: sentimentData.negative || 0,
         neutral: sentimentData.neutral || 0
       });
-      
       setLastUpdated(new Date());
       setLoading(false);
       setError(null);
@@ -53,26 +30,15 @@ export default function SentimentChart({ refreshKey = 0, onRefreshed, subreddit 
       console.error("Error fetching sentiment data:", error);
       setError(error.message);
       setLoading(false);
-    } finally {
-      setIsRefreshing(false);
     }
-  }, [subreddit]);
-  
+  }, []);
+
   useEffect(() => {
-    fetchSentimentData(true);
+    fetchSentimentData();
   }, [fetchSentimentData]);
 
   useEffect(() => {
-    if (refreshKey > 0) {
-      fetchSentimentData(true).finally(() => onRefreshed?.());
-    }
-  }, [refreshKey, fetchSentimentData, onRefreshed]);
-
-  useEffect(() => {
-    const url = subreddit
-      ? `/api/stream?subreddit=${encodeURIComponent(subreddit)}`
-      : '/api/stream';
-    const es = new EventSource(url);
+    const es = new EventSource('/api/stream');
 
     es.addEventListener('comment', (e) => {
       const comment = JSON.parse(e.data);
@@ -166,7 +132,7 @@ export default function SentimentChart({ refreshKey = 0, onRefreshed, subreddit 
   if (hasNoData) {
     return (
       <div className="sentiment-chart-container sentiment-chart-no-data">
-        <p>No sentiment data available</p>
+        <p>Waiting for comments{subreddit ? ` from r/${subreddit}` : ''}…</p>
       </div>
     );
   }
@@ -177,7 +143,6 @@ export default function SentimentChart({ refreshKey = 0, onRefreshed, subreddit 
         <h3 className="sentiment-chart-title">
           Sentiment Analysis
           {subreddit && <span className="chart-subreddit-badge">r/{subreddit}</span>}
-          {isRefreshing && <span className="auto-refresh-indicator"> 🔄</span>}
         </h3>
         {lastUpdated && (
           <span className="last-updated">Updated: {lastUpdated.toLocaleTimeString()}</span>

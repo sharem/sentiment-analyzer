@@ -1,7 +1,5 @@
 """Tests for SQLiteCommentRepository."""
 
-import time
-
 from backend.domain.comment import Sentiment
 from backend.infrastructure.repositories.sqlite_repository import (
     SQLiteCommentRepository,
@@ -35,7 +33,7 @@ class TestCircularBuffer:
         comments = service.get_recent_comments()
         assert len(comments) == 5
         assert [c.text for c in comments] == [
-            f"Comment {i}" for i in range(2, 7)
+            f"Comment {i}" for i in range(6, 1, -1)
         ]
         assert service.get_sentiment_counts()["positive"] == 5
 
@@ -44,22 +42,6 @@ class TestDataRetrieval:
     def test_get_recent_comments_with_limit(self, service_with_data):
         assert len(service_with_data.get_recent_comments()) == 4
         assert len(service_with_data.get_recent_comments(limit=2)) == 2
-
-    def test_get_stats_empty(self, service):
-        stats = service.get_stats()
-        assert stats["total_comments"] == 0
-        assert stats["oldest_comment_timestamp"] is None
-        assert stats["newest_comment_timestamp"] is None
-
-    def test_get_stats_with_data(self, service, make_comment):
-        service.add_comment(make_comment("First", "positive", 0.5))
-        time.sleep(0.001)
-        service.add_comment(make_comment("Second", "negative", -0.3))
-
-        stats = service.get_stats()
-        assert stats["total_comments"] == 2
-        assert stats["oldest_comment_timestamp"] is not None
-        assert stats["newest_comment_timestamp"] is not None
 
 
 
@@ -92,5 +74,5 @@ class TestEdgeCases:
         service.add_comment(make_comment("Extreme negative", "negative", -1.0))
         comments = service.get_recent_comments()
         assert len(comments) == 2
-        assert comments[0].polarity == 1.0
-        assert comments[1].polarity == -1.0
+        assert comments[0].polarity == -1.0
+        assert comments[1].polarity == 1.0

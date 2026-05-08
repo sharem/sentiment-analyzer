@@ -2,7 +2,6 @@ import logging
 import os
 import sqlite3
 from datetime import datetime
-from typing import Any
 
 from backend.domain.comment import Comment, Sentiment
 from backend.domain.comment_repository import CommentRepository
@@ -46,22 +45,6 @@ class SQLiteCommentRepository(CommentRepository):
                 "CREATE INDEX IF NOT EXISTS "
                 "idx_created_at ON comments(created_at)"
             )
-            conn.execute(
-                "CREATE INDEX IF NOT EXISTS "
-                "idx_subreddit ON comments(subreddit)"
-            )
-            self._migrate_db(conn)
-
-    def _migrate_db(self, conn: sqlite3.Connection) -> None:
-        existing = {row[1] for row in conn.execute("PRAGMA table_info(comments)")}
-        if "subreddit" not in existing:
-            conn.execute(
-                "ALTER TABLE comments ADD COLUMN subreddit TEXT NOT NULL DEFAULT 'unknown'"
-            )
-            conn.execute(
-                "CREATE INDEX IF NOT EXISTS idx_subreddit ON comments(subreddit)"
-            )
-
     def add_comment(self, comment: Comment) -> None:
         with self._get_connection() as conn:
             conn.execute(
@@ -85,29 +68,22 @@ class SQLiteCommentRepository(CommentRepository):
                 )
             """, (self._max_comments,))
 
-    def get_recent_comments(
-        self, limit: int | None = None, subreddit: str | None = None
-    ) -> list[Comment]:
-        where = "WHERE subreddit = ?" if subreddit else ""
-        params_filter = (subreddit,) if subreddit else ()
+    def get_recent_comments(self, limit: int | None = None) -> list[Comment]:
         with self._get_connection() as conn:
             if limit is not None:
-                rows = conn.execute(f"""
+                rows = conn.execute("""
                     SELECT text, sentiment, polarity, created_at as timestamp, subreddit
-                    FROM (
-                        SELECT text, sentiment, polarity, created_at, id, subreddit
-                        FROM comments {where}
-                        ORDER BY created_at DESC, id DESC
-                        LIMIT ?
-                    ) ORDER BY created_at ASC, id ASC
-                """, (*params_filter, limit)).fetchall()
+                    FROM comments
+                    ORDER BY created_at DESC, id DESC
+                    LIMIT ?
+                """, (limit,)).fetchall()
             else:
-                rows = conn.execute(f"""
+                rows = conn.execute("""
                     SELECT text, sentiment, polarity,
                            created_at as timestamp, subreddit
-                    FROM comments {where}
-                    ORDER BY created_at ASC, id ASC
-                """, params_filter).fetchall()
+                    FROM comments
+                    ORDER BY created_at DESC, id DESC
+                """).fetchall()
         return [
             Comment(
                 text=row["text"],
@@ -119,38 +95,18 @@ class SQLiteCommentRepository(CommentRepository):
             for row in rows
         ]
 
-    def get_sentiment_counts(self, subreddit: str | None = None) -> dict[str, int]:
-        where = "WHERE subreddit = ?" if subreddit else ""
-        params = (subreddit,) if subreddit else ()
+    def get_sentiment_counts(self) -> dict[str, int]:
         with self._get_connection() as conn:
-            rows = conn.execute(f"""
+            rows = conn.execute("""
                 SELECT sentiment, COUNT(*) as count
-                FROM comments {where}
+                FROM comments
                 GROUP BY sentiment
-            """, params).fetchall()
+            """).fetchall()
         counts: dict[str, int] = {s.value: 0 for s in Sentiment}
         for row in rows:
             counts[row["sentiment"]] = row["count"]
         return counts
 
-    def get_stats(self, subreddit: str | None = None) -> dict[str, Any]:
-        where = "WHERE subreddit = ?" if subreddit else ""
-        params = (subreddit,) if subreddit else ()
+    def clear(self) -> None:
         with self._get_connection() as conn:
-            row = conn.execute(f"""
-                SELECT COUNT(*) as total,
-                       MIN(created_at) as oldest,
-                       MAX(created_at) as newest
-                FROM comments {where}
-            """, params).fetchone()
-
-        return {
-            "total_comments": row["total"],
-            "oldest_comment_timestamp": (
-                datetime.fromisoformat(row["oldest"]) if row["oldest"] else None
-            ),
-            "newest_comment_timestamp": (
-                datetime.fromisoformat(row["newest"]) if row["newest"] else None
-            ),
-            "sentiment_counts": self.get_sentiment_counts(subreddit=subreddit),
-        }
+            conn.execute("DELETE FROM comments")

@@ -1,24 +1,11 @@
-import { useState, useEffect, useCallback } from 'react';
+import { useState } from 'react';
 import './MonitorControl.css';
 
-export default function MonitorControl({ onTargetChanged }) {
+export default function MonitorControl({ onTargetChanged, activeTarget = null, isSetup = false }) {
   const [subredditInput, setSubredditInput] = useState('');
   const [postIdInput, setPostIdInput] = useState('');
-  const [current, setCurrent] = useState(null);
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState(null);
-
-  const fetchCurrent = useCallback(async () => {
-    try {
-      const res = await fetch('/api/monitor');
-      if (!res.ok) throw new Error(`HTTP ${res.status}`);
-      setCurrent(await res.json());
-    } catch (e) {
-      console.error('Failed to fetch monitor config:', e);
-    }
-  }, []);
-
-  useEffect(() => { fetchCurrent(); }, [fetchCurrent]);
 
   async function handleSubmit(e) {
     e.preventDefault();
@@ -33,29 +20,34 @@ export default function MonitorControl({ onTargetChanged }) {
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ subreddit: sub, post_id: postIdInput.trim() || null }),
       });
-      if (!res.ok) throw new Error(`HTTP ${res.status}`);
+      if (!res.ok) {
+        const body = await res.json().catch(() => ({}));
+        throw new Error(body.detail || `HTTP ${res.status}`);
+      }
       const data = await res.json();
-      setCurrent(data);
       setSubredditInput('');
       setPostIdInput('');
-      onTargetChanged?.(data.subreddit);
-    } catch {
-      setError('Failed to update — check the subreddit name and try again.');
+      onTargetChanged?.(data);
+    } catch (e) {
+      setError(e.message || 'Failed to update — check the subreddit name and try again.');
     } finally {
       setSubmitting(false);
     }
   }
 
-  const label = current
-    ? <>r/<strong>{current.subreddit}</strong>{current.post_id ? ` · post ${current.post_id}` : ''}</>
-    : '…';
-
   return (
     <div className="monitor-control">
-      <div className="monitor-status">
-        <span className="monitor-dot" />
-        <span className="monitor-current-label">Monitoring {label}</span>
-      </div>
+      {isSetup ? (
+        <p className="monitor-setup-label">Choose a subreddit or post to start monitoring</p>
+      ) : (
+        <div className="monitor-status">
+          <span className="monitor-dot" />
+          <span className="monitor-current-label">
+            Monitoring r/<strong>{activeTarget.subreddit}</strong>
+            {activeTarget.post_id ? ` · post ${activeTarget.post_id}` : ''}
+          </span>
+        </div>
+      )}
 
       <form className="monitor-form" onSubmit={handleSubmit}>
         <div className="monitor-inputs">
@@ -85,7 +77,7 @@ export default function MonitorControl({ onTargetChanged }) {
             className="monitor-button"
             disabled={submitting || !subredditInput.trim()}
           >
-            {submitting ? 'Switching…' : 'Switch'}
+            {submitting ? (isSetup ? 'Starting…' : 'Switching…') : (isSetup ? 'Start' : 'Switch')}
           </button>
         </div>
         {error && <p className="monitor-error">{error}</p>}

@@ -4,7 +4,7 @@ from fastapi.testclient import TestClient
 
 from backend.domain.monitor_target import MonitorTarget
 from backend.infrastructure.api.app import app
-from backend.infrastructure.dependencies import get_monitor_repository
+from backend.infrastructure.dependencies import get_monitor_repository, get_repository
 
 
 @pytest.fixture
@@ -14,6 +14,14 @@ def mock_monitor_repo():
     app.dependency_overrides[get_monitor_repository] = lambda: mock
     yield mock
     app.dependency_overrides.pop(get_monitor_repository, None)
+
+
+@pytest.fixture
+def mock_repo():
+    mock = MagicMock()
+    app.dependency_overrides[get_repository] = lambda: mock
+    yield mock
+    app.dependency_overrides.pop(get_repository, None)
 
 
 @pytest.fixture
