@@ -2,9 +2,9 @@ from backend.domain.monitor_target import MonitorTarget
 
 
 class TestGetMonitor:
-    def test_returns_default_when_no_config(self, client, mock_monitor_repo):
+    def test_returns_null_when_no_config(self, client, mock_monitor_repo):
         data = client.get("/api/monitor").json()
-        assert data["subreddit"] == "AskReddit"
+        assert data["subreddit"] is None
         assert data["post_id"] is None
 
     def test_returns_stored_config(self, client, mock_monitor_repo):
@@ -20,16 +20,17 @@ class TestGetMonitor:
 
 
 class TestSetMonitor:
-    def test_set_subreddit(self, client, mock_monitor_repo):
+    def test_set_subreddit(self, client, mock_monitor_repo, mock_repo):
         mock_monitor_repo.set.return_value = MonitorTarget(subreddit="worldnews")
         response = client.post("/api/monitor", json={"subreddit": "worldnews"})
         assert response.status_code == 200
         data = response.json()
         assert data["subreddit"] == "worldnews"
         assert data["post_id"] is None
+        mock_repo.clear.assert_called_once()
         mock_monitor_repo.set.assert_called_once_with(subreddit="worldnews", post_id=None)
 
-    def test_set_subreddit_with_post_id(self, client, mock_monitor_repo):
+    def test_set_subreddit_with_post_id(self, client, mock_monitor_repo, mock_repo):
         mock_monitor_repo.set.return_value = MonitorTarget(subreddit="gaming", post_id="xyz789")
         response = client.post(
             "/api/monitor", json={"subreddit": "gaming", "post_id": "xyz789"}
@@ -38,7 +39,8 @@ class TestSetMonitor:
         data = response.json()
         assert data["subreddit"] == "gaming"
         assert data["post_id"] == "xyz789"
+        mock_repo.clear.assert_called_once()
 
-    def test_missing_subreddit_returns_422(self, client, mock_monitor_repo):
+    def test_missing_subreddit_returns_422(self, client, mock_monitor_repo, mock_repo):
         response = client.post("/api/monitor", json={})
         assert response.status_code == 422

@@ -22,10 +22,7 @@ export default function SentimentChart({ refreshKey = 0, onRefreshed, subreddit 
 
       setIsRefreshing(true);
 
-      const url = subreddit
-        ? `/api/sentiment?subreddit=${encodeURIComponent(subreddit)}`
-        : '/api/sentiment';
-      const response = await fetch(url);
+      const response = await fetch('/api/sentiment');
       
       if (!response.ok) {
         throw new Error(`HTTP error! status: ${response.status}`);
@@ -69,10 +66,7 @@ export default function SentimentChart({ refreshKey = 0, onRefreshed, subreddit 
   }, [refreshKey, fetchSentimentData, onRefreshed]);
 
   useEffect(() => {
-    const url = subreddit
-      ? `/api/stream?subreddit=${encodeURIComponent(subreddit)}`
-      : '/api/stream';
-    const es = new EventSource(url);
+    const es = new EventSource('/api/stream');
 
     es.addEventListener('comment', (e) => {
       const comment = JSON.parse(e.data);

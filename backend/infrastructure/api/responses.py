@@ -19,15 +19,9 @@ class SentimentCountsResponse(BaseModel):
     neutral: int
 
 
-class StatsResponse(BaseModel):
-    total_comments: int
-    sentiment_counts: SentimentCountsResponse
-    oldest_comment_timestamp: datetime | None = None
-    newest_comment_timestamp: datetime | None = None
-
 
 class MonitorConfigResponse(BaseModel):
-    subreddit: str
+    subreddit: str | None = None
     post_id: str | None = None
 
 

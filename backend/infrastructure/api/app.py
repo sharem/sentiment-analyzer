@@ -3,6 +3,7 @@
 import json
 import logging
 import os
+
 from typing import Any
 
 from dotenv import load_dotenv
@@ -22,7 +23,6 @@ from backend.infrastructure.api.responses import (
     HealthResponse,
     MonitorConfigResponse,
     SentimentCountsResponse,
-    StatsResponse,
 )
 from backend.domain.monitor_repository import MonitorRepository
 from backend.infrastructure.dependencies import get_live_stream, get_monitor_repository, get_repository
@@ -63,17 +63,19 @@ async def security_headers(request: Request, call_next) -> Any:
 
 
 @app.get("/api/monitor", response_model=MonitorConfigResponse)
-def get_monitor(repo: MonitorRepository = Depends(get_monitor_repository)) -> MonitorConfigResponse:
-    target = repo.get()
+def get_monitor(monitor_repo: MonitorRepository = Depends(get_monitor_repository)) -> MonitorConfigResponse:
+    target = monitor_repo.get()
     return MonitorConfigResponse(subreddit=target.subreddit, post_id=target.post_id)
 
 
 @app.post("/api/monitor", response_model=MonitorConfigResponse)
 def set_monitor(
     body: MonitorConfigRequest,
-    repo: MonitorRepository = Depends(get_monitor_repository),
+    monitor_repo: MonitorRepository = Depends(get_monitor_repository),
+    comment_repo: CommentRepository = Depends(get_repository),
 ) -> MonitorConfigResponse:
-    target = repo.set(subreddit=body.subreddit, post_id=body.post_id)
+    comment_repo.clear()
+    target = monitor_repo.set(subreddit=body.subreddit, post_id=body.post_id)
     logger.info(
         f"Monitor target updated: r/{target.subreddit}"
         + (f" post={target.post_id}" if target.post_id else "")
@@ -100,28 +102,16 @@ async def stream(
 
 
 @app.get("/api/sentiment", response_model=SentimentCountsResponse)
-def sentiment_data(
-    subreddit: str | None = Query(default=None),
-    repo: CommentRepository = Depends(get_repository),
-) -> dict[str, int]:
-    return repo.get_sentiment_counts(subreddit=subreddit)
+def sentiment_data(repo: CommentRepository = Depends(get_repository)) -> dict[str, int]:
+    return repo.get_sentiment_counts()
 
 
 @app.get("/api/comments", response_model=list[CommentResponse])
 def comments(
     limit: int = Query(default=10, ge=1, le=100),
-    subreddit: str | None = Query(default=None),
     repo: CommentRepository = Depends(get_repository),
 ) -> list[Comment]:
-    return repo.get_recent_comments(limit, subreddit=subreddit)
-
-
-@app.get("/api/stats", response_model=StatsResponse)
-def stats(
-    subreddit: str | None = Query(default=None),
-    repo: CommentRepository = Depends(get_repository),
-) -> dict[str, Any]:
-    return repo.get_stats(subreddit=subreddit)
+    return repo.get_recent_comments(limit)
 
 
 @app.get("/health", response_model=HealthResponse)

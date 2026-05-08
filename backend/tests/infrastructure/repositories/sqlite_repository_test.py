@@ -1,7 +1,5 @@
 """Tests for SQLiteCommentRepository."""
 
-import time
-
 from backend.domain.comment import Sentiment
 from backend.infrastructure.repositories.sqlite_repository import (
     SQLiteCommentRepository,
@@ -44,22 +42,6 @@ class TestDataRetrieval:
     def test_get_recent_comments_with_limit(self, service_with_data):
         assert len(service_with_data.get_recent_comments()) == 4
         assert len(service_with_data.get_recent_comments(limit=2)) == 2
-
-    def test_get_stats_empty(self, service):
-        stats = service.get_stats()
-        assert stats["total_comments"] == 0
-        assert stats["oldest_comment_timestamp"] is None
-        assert stats["newest_comment_timestamp"] is None
-
-    def test_get_stats_with_data(self, service, make_comment):
-        service.add_comment(make_comment("First", "positive", 0.5))
-        time.sleep(0.001)
-        service.add_comment(make_comment("Second", "negative", -0.3))
-
-        stats = service.get_stats()
-        assert stats["total_comments"] == 2
-        assert stats["oldest_comment_timestamp"] is not None
-        assert stats["newest_comment_timestamp"] is not None
 
 
 
