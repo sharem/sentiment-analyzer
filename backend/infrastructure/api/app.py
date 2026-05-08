@@ -1,5 +1,6 @@
 """FastAPI application to serve sentiment analysis data."""
 
+import json
 import logging
 import os
 from typing import Any
@@ -8,19 +9,24 @@ from dotenv import load_dotenv
 from fastapi import Depends, FastAPI, Query, Request
 from fastapi.exceptions import RequestValidationError
 from fastapi.middleware.cors import CORSMiddleware
+from fastapi.responses import StreamingResponse
 from starlette.exceptions import HTTPException as StarletteHTTPException
 
 from backend.domain.comment import Comment
 from backend.domain.comment_repository import CommentRepository
 from backend.infrastructure.api import exception_handlers
 from backend.infrastructure.api.exception_handlers import HealthCheckError
+from backend.infrastructure.api.requests import MonitorConfigRequest
 from backend.infrastructure.api.responses import (
     CommentResponse,
     HealthResponse,
+    MonitorConfigResponse,
     SentimentCountsResponse,
     StatsResponse,
 )
-from backend.infrastructure.dependencies import get_repository
+from backend.infrastructure.dependencies import get_live_stream, get_redis_client, get_repository
+from backend.infrastructure.messaging.live_stream import LiveEventStream
+from backend.infrastructure.monitor_config import get_monitor_target, set_monitor_target
 
 load_dotenv()
 
@@ -55,17 +61,71 @@ async def security_headers(request: Request, call_next) -> Any:
     return response
 
 
+@app.get("/api/monitor", response_model=MonitorConfigResponse)
+def get_monitor(redis=Depends(get_redis_client)) -> MonitorConfigResponse:
+    target = get_monitor_target(redis)
+    return MonitorConfigResponse(subreddit=target.subreddit, post_id=target.post_id)
+
+
+@app.post("/api/monitor", response_model=MonitorConfigResponse)
+def set_monitor(
+    body: MonitorConfigRequest,
+    redis=Depends(get_redis_client),
+) -> MonitorConfigResponse:
+    target = set_monitor_target(redis, subreddit=body.subreddit, post_id=body.post_id)
+    logger.info(
+        f"Monitor target updated: r/{target.subreddit}"
+        + (f" post={target.post_id}" if target.post_id else "")
+    )
+    return MonitorConfigResponse(subreddit=target.subreddit, post_id=target.post_id)
+
+
+def _matches_filter(event_data: dict, subreddit: str | None) -> bool:
+    return subreddit is None or event_data.get("subreddit") == subreddit
+
+
+@app.get("/api/stream")
+async def stream(
+    subreddit: str | None = Query(default=None),
+    live_stream: LiveEventStream = Depends(get_live_stream),
+) -> StreamingResponse:
+    async def event_generator():
+        async for data in live_stream.subscribe("comments:live"):
+            if data is None:
+                yield ": keepalive\n\n"
+            elif _matches_filter(data, subreddit):
+                yield f"event: comment\ndata: {json.dumps(data)}\n\n"
+
+    return StreamingResponse(
+        event_generator(),
+        media_type="text/event-stream",
+        headers={"Cache-Control": "no-cache", "X-Accel-Buffering": "no"},
+    )
+
+
 @app.get("/api/sentiment", response_model=SentimentCountsResponse)
-def sentiment_data(repo: CommentRepository = Depends(get_repository)) -> dict[str, int]:
-    return repo.get_sentiment_counts()
+def sentiment_data(
+    subreddit: str | None = Query(default=None),
+    repo: CommentRepository = Depends(get_repository),
+) -> dict[str, int]:
+    return repo.get_sentiment_counts(subreddit=subreddit)
 
 
 @app.get("/api/comments", response_model=list[CommentResponse])
 def comments(
     limit: int = Query(default=10, ge=1, le=100),
+    subreddit: str | None = Query(default=None),
     repo: CommentRepository = Depends(get_repository),
 ) -> list[Comment]:
-    return repo.get_recent_comments(limit)
+    return repo.get_recent_comments(limit, subreddit=subreddit)
+
+
+@app.get("/api/stats", response_model=StatsResponse)
+def stats(
+    subreddit: str | None = Query(default=None),
+    repo: CommentRepository = Depends(get_repository),
+) -> dict[str, Any]:
+    return repo.get_stats(subreddit=subreddit)
 
 
 @app.get("/health", response_model=HealthResponse)
@@ -76,11 +136,6 @@ def health(repo: CommentRepository = Depends(get_repository)) -> HealthResponse:
     except Exception as e:
         logger.exception("Health check failed: %s", str(e))
         raise HealthCheckError(str(e))
-
-
-@app.get("/api/stats", response_model=StatsResponse)
-def stats(repo: CommentRepository = Depends(get_repository)) -> dict[str, Any]:
-    return repo.get_stats()
 
 
 if __name__ == "__main__":

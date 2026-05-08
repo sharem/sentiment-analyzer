@@ -3,7 +3,7 @@ import { Pie } from 'react-chartjs-2';
 import 'chart.js/auto';
 import './SentimentChart.css';
 
-export default function SentimentChart({ refreshKey = 0, onRefreshed }) {
+export default function SentimentChart({ refreshKey = 0, onRefreshed, subreddit = null }) {
   const [sentimentCounts, setSentimentCounts] = useState({
     positive: 0,
     negative: 0,
@@ -19,10 +19,13 @@ export default function SentimentChart({ refreshKey = 0, onRefreshed }) {
       if (isManual) {
         setError(null);
       }
-      
+
       setIsRefreshing(true);
-            
-      const response = await fetch('/api/sentiment');
+
+      const url = subreddit
+        ? `/api/sentiment?subreddit=${encodeURIComponent(subreddit)}`
+        : '/api/sentiment';
+      const response = await fetch(url);
       
       if (!response.ok) {
         throw new Error(`HTTP error! status: ${response.status}`);
@@ -53,12 +56,10 @@ export default function SentimentChart({ refreshKey = 0, onRefreshed }) {
     } finally {
       setIsRefreshing(false);
     }
-  }, []);
+  }, [subreddit]);
   
   useEffect(() => {
     fetchSentimentData(true);
-    const interval = setInterval(() => { fetchSentimentData(false); }, 10000);
-    return () => clearInterval(interval);
   }, [fetchSentimentData]);
 
   useEffect(() => {
@@ -66,6 +67,24 @@ export default function SentimentChart({ refreshKey = 0, onRefreshed }) {
       fetchSentimentData(true).finally(() => onRefreshed?.());
     }
   }, [refreshKey, fetchSentimentData, onRefreshed]);
+
+  useEffect(() => {
+    const url = subreddit
+      ? `/api/stream?subreddit=${encodeURIComponent(subreddit)}`
+      : '/api/stream';
+    const es = new EventSource(url);
+
+    es.addEventListener('comment', (e) => {
+      const comment = JSON.parse(e.data);
+      setSentimentCounts(prev => ({
+        ...prev,
+        [comment.sentiment]: (prev[comment.sentiment] ?? 0) + 1,
+      }));
+      setLastUpdated(new Date());
+    });
+
+    return () => es.close();
+  }, [subreddit]);
 
   // Memoize the chart data structure
   const chartData = useMemo(() => ({
@@ -157,6 +176,7 @@ export default function SentimentChart({ refreshKey = 0, onRefreshed }) {
       <div className="sentiment-chart-header">
         <h3 className="sentiment-chart-title">
           Sentiment Analysis
+          {subreddit && <span className="chart-subreddit-badge">r/{subreddit}</span>}
           {isRefreshing && <span className="auto-refresh-indicator"> 🔄</span>}
         </h3>
         {lastUpdated && (
@@ -167,7 +187,7 @@ export default function SentimentChart({ refreshKey = 0, onRefreshed }) {
         <Pie data={chartData} options={chartOptions} />
       </div>
       <div className="auto-refresh-info">
-        <small>📡 Auto-refreshes every 10 seconds</small>
+        <small>⚡ Live updates via server-sent events</small>
       </div>
     </div>
   );

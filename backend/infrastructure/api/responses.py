@@ -10,6 +10,7 @@ class CommentResponse(BaseModel):
     sentiment: str
     polarity: float
     timestamp: datetime
+    subreddit: str
 
 
 class SentimentCountsResponse(BaseModel):
@@ -23,6 +24,11 @@ class StatsResponse(BaseModel):
     sentiment_counts: SentimentCountsResponse
     oldest_comment_timestamp: datetime | None = None
     newest_comment_timestamp: datetime | None = None
+
+
+class MonitorConfigResponse(BaseModel):
+    subreddit: str
+    post_id: str | None = None
 
 
 class HealthResponse(BaseModel):

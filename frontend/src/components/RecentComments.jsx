@@ -1,7 +1,7 @@
 import { useEffect, useState, useCallback } from 'react';
 import './RecentComments.css';
 
-export default function RecentComments({ refreshKey = 0, onRefreshed }) {
+export default function RecentComments({ refreshKey = 0, onRefreshed, subreddit = null }) {
   const [comments, setComments] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
@@ -17,7 +17,10 @@ export default function RecentComments({ refreshKey = 0, onRefreshed }) {
       
       setIsRefreshing(true);
       
-      const response = await fetch('/api/comments?limit=10');
+      const url = subreddit
+        ? `/api/comments?limit=10&subreddit=${encodeURIComponent(subreddit)}`
+        : '/api/comments?limit=10';
+      const response = await fetch(url);
       
       if (!response.ok) {
         throw new Error(`HTTP error! status: ${response.status}`);
@@ -49,12 +52,10 @@ export default function RecentComments({ refreshKey = 0, onRefreshed }) {
     } finally {
       setIsRefreshing(false);
     }
-  }, []);
+  }, [subreddit]);
 
   useEffect(() => {
     fetchComments(true);
-    const interval = setInterval(() => { fetchComments(false); }, 10000);
-    return () => clearInterval(interval);
   }, [fetchComments]);
 
   useEffect(() => {
@@ -62,6 +63,22 @@ export default function RecentComments({ refreshKey = 0, onRefreshed }) {
       fetchComments(true).finally(() => onRefreshed?.());
     }
   }, [refreshKey, fetchComments, onRefreshed]);
+
+  useEffect(() => {
+    const url = subreddit
+      ? `/api/stream?subreddit=${encodeURIComponent(subreddit)}`
+      : '/api/stream';
+    const es = new EventSource(url);
+
+    es.addEventListener('comment', (e) => {
+      const comment = { ...JSON.parse(e.data), id: crypto.randomUUID() };
+      setComments(prev => [...prev, comment].slice(-10));
+      setAnimKey(k => k + 1);
+      setLastUpdated(new Date());
+    });
+
+    return () => es.close();
+  }, [subreddit]);
 
   const getSentimentClass = (sentiment) => {
     switch (sentiment?.toLowerCase()) {
@@ -153,6 +170,7 @@ export default function RecentComments({ refreshKey = 0, onRefreshed }) {
       <div className="recent-comments-header">
         <h3 className="recent-comments-title">
           Recent Comments
+          {subreddit && <span className="comments-subreddit-badge">r/{subreddit}</span>}
           {isRefreshing && <span className="auto-refresh-indicator"> 🔄</span>}
         </h3>
         {lastUpdated && (
@@ -165,11 +183,16 @@ export default function RecentComments({ refreshKey = 0, onRefreshed }) {
           <div key={comment.id} className="comment-item">
             <div className="comment-content">
               <p className="comment-text">{comment.text}</p>
-              {comment.timestamp && (
-                <small className="comment-timestamp">
-                  {new Date(comment.timestamp).toLocaleTimeString()}
-                </small>
-              )}
+              <div className="comment-meta">
+                {comment.timestamp && (
+                  <small className="comment-timestamp">
+                    {new Date(comment.timestamp).toLocaleTimeString()}
+                  </small>
+                )}
+                {comment.subreddit && comment.subreddit !== 'unknown' && (
+                  <small className="comment-subreddit">r/{comment.subreddit}</small>
+                )}
+              </div>
             </div>
             <div className="comment-sentiment">
               <span 
@@ -191,7 +214,7 @@ export default function RecentComments({ refreshKey = 0, onRefreshed }) {
       </div>
       
       <div className="auto-refresh-info">
-        <small>📡 Auto-refreshes every 10 seconds</small>
+        <small>⚡ Live updates via server-sent events</small>
       </div>
     </div>
   );

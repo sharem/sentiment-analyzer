@@ -11,14 +11,14 @@ class CommentRepository(ABC):
 
     @abstractmethod
     def get_recent_comments(
-        self, limit: Optional[int] = None
+        self, limit: Optional[int] = None, subreddit: Optional[str] = None
     ) -> List[Comment]:
         pass
 
     @abstractmethod
-    def get_sentiment_counts(self) -> Dict[str, int]:
+    def get_sentiment_counts(self, subreddit: Optional[str] = None) -> Dict[str, int]:
         pass
 
     @abstractmethod
-    def get_stats(self) -> Dict[str, Any]:
+    def get_stats(self, subreddit: Optional[str] = None) -> Dict[str, Any]:
         pass
