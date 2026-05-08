@@ -2,7 +2,6 @@
 
 import logging
 import os
-import sys
 import time
 
 from dotenv import load_dotenv
@@ -31,18 +30,14 @@ def get_required_env(key: str) -> str:
 
 
 def create_reddit_client():
-    try:
-        reddit = praw.Reddit(
-            client_id=get_required_env("REDDIT_CLIENT_ID"),
-            client_secret=get_required_env("REDDIT_CLIENT_SECRET"),
-            user_agent=get_required_env("REDDIT_USER_AGENT"),
-        )
-        reddit.user.me()
-        logger.info("Reddit API connection established")
-        return reddit
-    except Exception as e:
-        logger.error(f"Failed to connect to Reddit API: {e}")
-        sys.exit(1)
+    reddit = praw.Reddit(
+        client_id=get_required_env("REDDIT_CLIENT_ID"),
+        client_secret=get_required_env("REDDIT_CLIENT_SECRET"),
+        user_agent=get_required_env("REDDIT_USER_AGENT"),
+    )
+    reddit.user.me()
+    logger.info("Reddit API connection established")
+    return reddit
 
 
 def _stream_subreddit(
@@ -110,7 +105,11 @@ def _poll_post(
 
 def main(broker: MessageBroker | None = None, monitor_repo: MonitorRepository | None = None) -> None:
     """Main producer loop — monitors the target set in Redis."""
-    reddit = create_reddit_client()
+    try:
+        reddit = create_reddit_client()
+    except Exception as e:
+        logger.error(f"Failed to connect to Reddit API: {e}")
+        raise SystemExit(1)
     broker = broker or create_broker()
     monitor_repo = monitor_repo or get_monitor_repository()
 
