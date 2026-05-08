@@ -6,6 +6,7 @@ import redis.asyncio as aioredis
 
 from backend.domain.comment import Comment
 from backend.domain.comment_publisher import CommentPublisher
+from backend.infrastructure.messaging.channels import COMMENTS_LIVE_CHANNEL
 from backend.infrastructure.messaging.live_stream import LiveEventStream
 
 
@@ -25,7 +26,7 @@ class RedisLiveStream(LiveEventStream, CommentPublisher):
             "timestamp": comment.timestamp.isoformat(),
             "subreddit": comment.subreddit,
         }
-        self._sync.publish("comments:live", json.dumps(data))
+        self._sync.publish(COMMENTS_LIVE_CHANNEL, json.dumps(data))
 
     async def subscribe(self, channel: str):
         r = aioredis.Redis(host=self._host, port=self._port, decode_responses=True)

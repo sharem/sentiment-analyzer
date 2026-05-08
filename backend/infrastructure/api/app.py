@@ -26,6 +26,7 @@ from backend.infrastructure.api.responses import (
 )
 from backend.domain.monitor_repository import MonitorRepository
 from backend.infrastructure.dependencies import get_live_stream, get_monitor_repository, get_repository
+from backend.infrastructure.messaging.channels import COMMENTS_LIVE_CHANNEL
 from backend.infrastructure.messaging.live_stream import LiveEventStream
 
 load_dotenv()
@@ -90,7 +91,7 @@ async def stream(
     live_stream: LiveEventStream = Depends(get_live_stream),
 ) -> StreamingResponse:
     async def event_generator():
-        async for data in live_stream.subscribe("comments:live"):
+        async for data in live_stream.subscribe(COMMENTS_LIVE_CHANNEL):
             if data is None:
                 yield ": keepalive\n\n"
             elif _matches_filter(data, subreddit):

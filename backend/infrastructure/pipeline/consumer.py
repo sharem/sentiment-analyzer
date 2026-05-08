@@ -5,6 +5,7 @@ import logging
 from backend.application.services import ProcessCommentService
 from backend.infrastructure.dependencies import get_process_comment_service
 from backend.infrastructure.messaging.broker_factory import create_broker
+from backend.infrastructure.messaging.channels import COMMENTS_TOPIC
 from backend.infrastructure.messaging.message_broker import BrokerError, MessageBroker
 
 logging.basicConfig(
@@ -30,7 +31,7 @@ def main(
     logger.info("Processing messages from topic 'reddit-comments'")
 
     try:
-        for message in broker.consume("reddit-comments"):
+        for message in broker.consume(COMMENTS_TOPIC):
             process_message(message, service)
     except KeyboardInterrupt:
         logger.info("Shutdown requested... exiting gracefully")

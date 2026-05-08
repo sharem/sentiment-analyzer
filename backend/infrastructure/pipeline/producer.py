@@ -12,6 +12,7 @@ from backend.domain.monitor_repository import MonitorRepository
 from backend.domain.monitor_target import MonitorTarget
 from backend.infrastructure.dependencies import get_monitor_repository
 from backend.infrastructure.messaging.broker_factory import create_broker
+from backend.infrastructure.messaging.channels import COMMENTS_TOPIC
 from backend.infrastructure.messaging.message_broker import BrokerError, MessageBroker
 
 load_dotenv()
@@ -59,7 +60,7 @@ def _stream_subreddit(
             )
             return new_target
         try:
-            broker.publish("reddit-comments", {
+            broker.publish(COMMENTS_TOPIC, {
                 "text": comment.body,
                 "subreddit": current_target.subreddit,
             })
@@ -94,7 +95,7 @@ def _poll_post(
             for comment in submission.comments.list():
                 if comment.id not in seen:
                     seen.add(comment.id)
-                    broker.publish("reddit-comments", {
+                    broker.publish(COMMENTS_TOPIC, {
                         "text": comment.body,
                         "subreddit": current_target.subreddit,
                         "post_id": current_target.post_id,
