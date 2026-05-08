@@ -1,6 +1,10 @@
 import json
 import os
 
+import pytest
+import redis
+
+from backend.infrastructure.messaging.message_broker import BrokerError
 from backend.infrastructure.messaging.redis_broker import RedisBroker
 
 
@@ -43,6 +47,14 @@ class TestRedisBrokerPublish:
         mock_client.publish.assert_called_once_with(
             "my-topic", json.dumps({"text": "hello"})
         )
+
+    def test_raises_broker_error_on_redis_error(self, mocker):
+        mock_client = mocker.MagicMock()
+        mock_client.publish.side_effect = redis.RedisError("connection refused")
+        mocker.patch(REDIS_CLASS_PATCH, return_value=mock_client)
+
+        with pytest.raises(BrokerError):
+            RedisBroker().publish("my-topic", {"text": "hello"})
 
 
 class TestRedisBrokerConsume:

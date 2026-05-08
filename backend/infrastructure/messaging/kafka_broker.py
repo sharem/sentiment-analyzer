@@ -10,7 +10,7 @@ from collections.abc import Iterator
 from kafka import KafkaConsumer, KafkaProducer
 from kafka.errors import KafkaError
 
-from backend.infrastructure.messaging.message_broker import MessageBroker
+from backend.infrastructure.messaging.message_broker import BrokerError, MessageBroker
 
 logger = logging.getLogger(__name__)
 
@@ -68,14 +68,20 @@ class KafkaBroker(MessageBroker):
         return self._consumer
 
     def publish(self, topic: str, message: dict) -> None:
-        producer = self._get_producer()
-        future = producer.send(topic, value=message)
-        future.get(timeout=10)
+        try:
+            producer = self._get_producer()
+            future = producer.send(topic, value=message)
+            future.get(timeout=10)
+        except KafkaError as e:
+            raise BrokerError(str(e)) from e
 
     def consume(self, topic: str) -> Iterator[dict]:
         consumer = self._get_consumer(topic)
-        for message in consumer:
-            yield message.value
+        try:
+            for message in consumer:
+                yield message.value
+        except KafkaError as e:
+            raise BrokerError(str(e)) from e
 
     def close(self) -> None:
         if self._producer:

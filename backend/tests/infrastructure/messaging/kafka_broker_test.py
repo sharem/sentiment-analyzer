@@ -2,6 +2,7 @@ import pytest
 from kafka.errors import KafkaError
 
 from backend.infrastructure.messaging.kafka_broker import KafkaBroker
+from backend.infrastructure.messaging.message_broker import BrokerError
 
 
 KAFKA_CONSUMER_PATCH = "backend.infrastructure.messaging.kafka_broker.KafkaConsumer"
@@ -68,13 +69,13 @@ class TestKafkaBrokerPublish:
         mock_producer.send.assert_called_once_with("test-topic", value={"text": "hello"})
         mock_future.get.assert_called_once_with(timeout=10)
 
-    def test_propagates_kafka_error(self, mocker):
+    def test_raises_broker_error_on_kafka_error(self, mocker):
         mock_producer = mocker.MagicMock()
         mock_producer.send.side_effect = KafkaError("send failed")
         mocker.patch(KAFKA_PRODUCER_PATCH, return_value=mock_producer)
 
         broker = KafkaBroker()
-        with pytest.raises(KafkaError):
+        with pytest.raises(BrokerError):
             broker.publish("test-topic", {"text": "hello"})
 
 

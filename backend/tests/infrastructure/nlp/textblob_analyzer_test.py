@@ -1,10 +1,10 @@
 import pytest
 
-from backend.domain.comment import Comment, Sentiment
+from backend.domain.comment import Sentiment
 from backend.infrastructure.nlp.textblob_analyzer import (
     NEGATIVE_THRESHOLD,
     POSITIVE_THRESHOLD,
-    analyze_sentiment,
+    TextBlobSentimentAnalyzer,
     classify_polarity,
 )
 
@@ -44,18 +44,26 @@ class TestClassifyPolarity:
         assert classify_polarity(polarity) == expected
 
 
-class TestAnalyzeSentiment:
-    def test_returns_comment(self):
-        assert isinstance(analyze_sentiment("hello world"), Comment)
-
-    def test_text_preserved(self):
-        assert analyze_sentiment("test text").text == "test text"
-
-    def test_sentiment_matches_polarity(self, mocker):
+class TestTextBlobSentimentAnalyzer:
+    def test_returns_tuple_of_sentiment_and_polarity(self, mocker):
         mocker.patch(TEXTBLOB_PATCH).return_value.sentiment.polarity = 0.8
-        comment = analyze_sentiment("anything")
-        assert comment.sentiment == Sentiment.POSITIVE
-        assert comment.polarity == 0.8
+        analyzer = TextBlobSentimentAnalyzer()
+        sentiment, polarity = analyzer.analyze("anything")
+        assert sentiment == Sentiment.POSITIVE
+        assert polarity == 0.8
 
-    def test_timestamp_is_set(self):
-        assert analyze_sentiment("hello").timestamp is not None
+    def test_negative_text(self, mocker):
+        mocker.patch(TEXTBLOB_PATCH).return_value.sentiment.polarity = -0.6
+        sentiment, polarity = TextBlobSentimentAnalyzer().analyze("terrible")
+        assert sentiment == Sentiment.NEGATIVE
+        assert polarity == -0.6
+
+    def test_neutral_text(self, mocker):
+        mocker.patch(TEXTBLOB_PATCH).return_value.sentiment.polarity = 0.0
+        sentiment, _ = TextBlobSentimentAnalyzer().analyze("ok")
+        assert sentiment == Sentiment.NEUTRAL
+
+    def test_sentiment_matches_polarity_classification(self, mocker):
+        mocker.patch(TEXTBLOB_PATCH).return_value.sentiment.polarity = 0.5
+        sentiment, polarity = TextBlobSentimentAnalyzer().analyze("good")
+        assert classify_polarity(polarity) == sentiment
