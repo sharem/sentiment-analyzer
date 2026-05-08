@@ -1,62 +1,80 @@
 # Sentiment Analyzer
 
-A real-time sentiment analysis pipeline that fetches Reddit comments, streams them through a message broker (Redis Pub/Sub or Kafka), performs sentiment analysis, and displays results in a web dashboard.
+A real-time sentiment analysis pipeline that streams Reddit comments through a message broker, performs NLP sentiment analysis, and displays results in a live web dashboard. The monitored subreddit or post can be changed at runtime without restarting any service.
 
 ## Architecture
 
 ```
-Reddit API → Producer → Kafka or Redis Pub/Sub → Consumer → SQLite → FastAPI → Frontend Dashboard
+Reddit API → Producer → [reddit-comments topic] → Consumer → SQLite
+                MessageBroker (Kafka or Redis)        ↓
+                                            ProcessCommentService
+                                                      ↓
+                                            RedisLiveStream.publish()
+                                                      ↓
+                                            [comments:live channel]
+                                                      ↓
+                                            FastAPI /api/stream → Browser (SSE)
 ```
 
-The backend follows **Hexagonal Architecture (Ports & Adapters)**. The domain layer is isolated from infrastructure and can swap adapters without touching business logic — e.g. SQLite → PostgreSQL, or Kafka → Redis Pub/Sub with a one-line change.
+The backend follows **Hexagonal Architecture (Ports & Adapters)**. The domain and application layers have no infrastructure dependencies — swapping SQLite → PostgreSQL, Kafka → Redis, or TextBlob → another NLP library requires changing only the adapter, not the business logic.
 
-> **Note:** Kafka is intentionally overengineered for this scale. Redis Pub/Sub is the default; Kafka is there if you want to mess around with it.
+> **Note:** Kafka is intentionally overengineered for this scale. Redis Pub/Sub is the default; Kafka is available if you want to explore it.
 
 ## Project Structure
 
 ```
 sentiment-analyzer/
 ├── backend/
-│   ├── domain/                         # Core domain — no external dependencies
-│   │   ├── comment.py                  # Comment entity + Sentiment value object
-│   │   ├── comment_repository.py       # Repository port (ABC)
-│   │   └── sentiment_service.py        # Sentiment classification domain service
+│   ├── domain/                          # Pure domain — zero infrastructure imports
+│   │   ├── comment.py                   # Comment entity + Sentiment enum
+│   │   ├── comment_publisher.py         # Port: publish a processed Comment
+│   │   ├── comment_repository.py        # Port: persist and query Comments
+│   │   ├── monitor_repository.py        # Port: read/write the active monitor target
+│   │   ├── monitor_target.py            # MonitorTarget value object
+│   │   └── sentiment_analyzer.py        # Port: classify text → (Sentiment, polarity)
+│   ├── application/
+│   │   └── services.py                  # ProcessCommentService — orchestrates the pipeline
 │   ├── infrastructure/
 │   │   ├── api/
-│   │   │   ├── app.py                  # FastAPI adapter — routes and middleware
-│   │   │   ├── exception_handlers.py   # Centralised exception handlers
-│   │   │   └── schemas.py              # Pydantic response models
+│   │   │   ├── app.py                   # FastAPI adapter — routes and middleware
+│   │   │   ├── requests.py              # Pydantic request models
+│   │   │   ├── responses.py             # Pydantic response models
+│   │   │   └── exception_handlers.py    # Centralised HTTP exception handlers
 │   │   ├── messaging/
-│   │   │   ├── message_broker.py       # MessageBroker ABC
-│   │   │   ├── broker_factory.py       # Instantiates broker from BROKER env var
-│   │   │   ├── kafka_broker.py         # Kafka adapter
-│   │   │   └── redis_broker.py         # Redis Pub/Sub adapter
+│   │   │   ├── channels.py              # Shared topic/channel name constants
+│   │   │   ├── message_broker.py        # MessageBroker port + BrokerError
+│   │   │   ├── broker_factory.py        # Instantiates broker from BROKER env var
+│   │   │   ├── kafka_broker.py          # Kafka adapter
+│   │   │   ├── redis_broker.py          # Redis Pub/Sub adapter (pipeline transport)
+│   │   │   ├── live_stream.py           # LiveEventStream port (SSE subscribe side)
+│   │   │   └── redis_live_stream.py     # Redis adapter: CommentPublisher + LiveEventStream
+│   │   ├── nlp/
+│   │   │   └── textblob_analyzer.py     # TextBlobSentimentAnalyzer adapter
 │   │   ├── pipeline/
-│   │   │   ├── producer.py             # Reddit → broker entry point
-│   │   │   └── consumer.py             # broker → domain → repository entry point
-│   │   └── repositories/
-│   │       └── sqlite_repository.py    # SQLite adapter (repository implementation)
+│   │   │   ├── producer.py              # Reddit → broker (thin adapter)
+│   │   │   └── consumer.py              # Broker → ProcessCommentService (thin adapter)
+│   │   ├── repositories/
+│   │   │   ├── sqlite_repository.py     # SQLiteCommentRepository adapter
+│   │   │   └── redis_monitor_repository.py  # RedisMonitorRepository adapter
+│   │   └── dependencies.py              # DI providers for FastAPI and pipeline
 │   └── tests/
-│       ├── domain/                     # Domain logic tests
+│       ├── application/                 # ProcessCommentService unit tests
 │       └── infrastructure/
-│           ├── api/                    # API endpoint tests
-│           ├── messaging/              # Broker adapter tests
-│           ├── pipeline/               # Producer/consumer entry point tests
-│           └── repositories/          # Repository integration tests
-├── docker-compose.yml                  # Kafka/Zookeeper and Redis/Redis Commander (Docker Compose profiles)
-├── frontend/                           # Astro/React dashboard
-│   └── src/
-│       ├── components/
-│       │   ├── Dashboard.jsx           # Layout wrapper with single refresh control
-│       │   ├── SentimentChart.jsx      # Pie chart visualization
-│       │   └── RecentComments.jsx      # Recent comments display with fade-in animation
-│       └── pages/index.astro
-├── .github/workflows/
-│   └── lint-and-test.yml
+│           ├── api/                     # API endpoint integration tests
+│           ├── messaging/               # Broker adapter tests
+│           ├── nlp/                     # Analyser adapter tests
+│           ├── pipeline/                # Consumer/producer adapter tests
+│           └── repositories/           # Repository integration tests
+├── frontend/                            # Astro + React dashboard
+│   └── src/components/
+│       ├── Dashboard.jsx                # Layout + active subreddit state
+│       ├── MonitorControl.jsx           # Subreddit/post switcher
+│       ├── SentimentChart.jsx           # Pie chart — live via SSE
+│       └── RecentComments.jsx           # Comment feed — live via SSE
+├── docker-compose.yml
 ├── startup.sh
 ├── shutdown.sh
-├── status.sh
-└── logs/
+└── status.sh
 ```
 
 ## Quick Start
@@ -66,13 +84,13 @@ sentiment-analyzer/
 - Python 3.10+
 - Node.js 18+
 - Docker & Docker Compose
-- Reddit API credentials (for PRAW)
+- Reddit API credentials ([create an app](https://www.reddit.com/prefs/apps))
 
 ### Setup
 
 1. **Clone the repository:**
    ```bash
-   git clone https://github.com/your-username/sentiment-analyzer.git
+   git clone https://github.com/sharem/sentiment-analyzer.git
    cd sentiment-analyzer
    ```
 
@@ -82,16 +100,12 @@ sentiment-analyzer/
    cd frontend && npm install && cd ..
    ```
 
-3. **Configure environment variables:**
+3. **Configure environment variables** (create `backend/.env`):
    ```bash
-   # backend/.env
    REDDIT_CLIENT_ID=your_client_id
    REDDIT_CLIENT_SECRET=your_client_secret
    REDDIT_USER_AGENT=sentiment-analyzer-bot
-   SECRET_KEY=your_secret_key
    CORS_ORIGINS=http://localhost:4321
-   KAFKA_BOOTSTRAP_SERVERS=localhost:9092
-   KAFKA_TOPIC=reddit-comments
    PORT=5000
    ENV=development
    ```
@@ -102,11 +116,13 @@ sentiment-analyzer/
 ./startup.sh
 ```
 
-`startup.sh` prompts you to choose **Kafka** or **Redis** and starts the matching containers.
+`startup.sh` prompts you to choose **Kafka** or **Redis** as the message broker and starts the matching containers.
 
-- Frontend Dashboard: http://localhost:4321
-- Backend API: http://localhost:5000
-- Broker UI (Kafka UI / Redis Commander): http://localhost:8081
+| Service | URL |
+|---|---|
+| Frontend Dashboard | http://localhost:4321 |
+| Backend API + OpenAPI docs | http://localhost:5000/docs |
+| Broker UI (Kafka UI / Redis Commander) | http://localhost:8081 |
 
 ```bash
 ./shutdown.sh   # Stop all services
@@ -116,32 +132,53 @@ sentiment-analyzer/
 ## Components
 
 ### Domain (`backend/domain/`)
-- **`Comment`** — core entity with text, sentiment, polarity, and timestamp
-- **`Sentiment`** — value object (POSITIVE / NEUTRAL / NEGATIVE)
-- **`CommentRepository`** — port (ABC) defining the storage contract
-- **`sentiment_service`** — domain service: `classify_polarity` and `analyze_sentiment`
 
-### Backend Infrastructure (`backend/infrastructure/`)
-- **FastAPI** — HTTP adapter exposing `/api/sentiment`, `/api/comments`, `/api/stats`, `/health`. Auto-generates OpenAPI docs at `/docs`.
-- **Pydantic schemas** — `CommentResponse`, `SentimentCountsResponse`, `StatsResponse`, `HealthResponse` define and validate all API response shapes.
-- **SQLiteCommentRepository** — repository adapter with circular buffer (100 comments default) and WAL mode
-- **MessageBroker** — ABC defining the publish/consume interface
-- **KafkaBroker** — `MessageBroker` implementation; lazy-initialises with exponential-backoff retry on connect
-- **RedisBroker** — `MessageBroker` implementation using Redis Pub/Sub
-- **`create_broker()`** — factory that reads the `BROKER` env var (`kafka` | `redis`) and returns the right adapter
+Pure Python — no framework or infrastructure imports.
 
-### Pipeline (`backend/infrastructure/pipeline/`)
-- **Producer** — streams Reddit comments from r/AskReddit and publishes via `MessageBroker`
-- **Consumer** — consumes via `MessageBroker`, calls `analyze_sentiment` (domain service), persists via repository
-- Both accept optional `broker: MessageBroker` and `repo: CommentRepository` parameters for dependency injection (defaults via `create_broker()` → Redis).
+| File | Purpose |
+|---|---|
+| `comment.py` | `Comment` entity and `Sentiment` enum |
+| `comment_repository.py` | Port: persist and query comments |
+| `comment_publisher.py` | Port: broadcast a processed comment |
+| `sentiment_analyzer.py` | Port: classify text into sentiment + polarity |
+| `monitor_repository.py` | Port: read/write the active monitor target |
+| `monitor_target.py` | `MonitorTarget` value object |
 
-**`docker-compose.yml`** at project root — Kafka/Zookeeper and Redis/Redis Commander, separated by Docker Compose profiles (`--profile kafka` / `--profile redis`).
+### Application (`backend/application/`)
+
+- **`ProcessCommentService`** — the single application use case. Given a raw message dict, it calls `SentimentAnalyzer`, builds a `Comment`, persists it via `CommentRepository`, and notifies via `CommentPublisher`. All orchestration and structured logging lives here.
+
+### Infrastructure (`backend/infrastructure/`)
+
+**API adapter** — FastAPI routes expose:
+- `GET /api/sentiment` — sentiment counts (optional `?subreddit` filter)
+- `GET /api/comments` — recent comments (optional `?subreddit` and `?limit`)
+- `GET /api/stats` — aggregate stats
+- `GET /api/monitor` / `POST /api/monitor` — read/update the active monitor target
+- `GET /api/stream` — SSE stream of live processed comments
+- `GET /health` — health check
+
+**Messaging:**
+- `MessageBroker` (ABC) + `BrokerError` — broker port; adapters translate transport errors so callers are broker-agnostic
+- `KafkaBroker` — exponential-backoff retry on connection
+- `RedisBroker` — Redis Pub/Sub as a message queue
+- `LiveEventStream` (ABC) — SSE subscribe port
+- `RedisLiveStream` — implements both `LiveEventStream` (subscribe) and `CommentPublisher` (publish) over the same Redis channel
+
+**Repositories:**
+- `SQLiteCommentRepository` — WAL mode, circular buffer (100 comments), runtime migration for schema changes
+- `RedisMonitorRepository` — JSON-serialised monitor config stored in Redis
+
+**NLP:**
+- `TextBlobSentimentAnalyzer` — implements `SentimentAnalyzer` using TextBlob; polarity thresholds at ±0.1
 
 ### Frontend (`frontend/`)
-- **Astro + React** — full-viewport dashboard, auto-refreshes every 10 seconds
-- **Dashboard** — layout wrapper with a single "Refresh Now" button that updates both panels simultaneously
-- **SentimentChart** — interactive pie chart
-- **RecentComments** — live comment feed with staggered fade-in animation on refresh
+
+Astro + React. Connects to the SSE endpoint on load via `EventSource`; no polling.
+
+- **MonitorControl** — shows the active subreddit, lets users switch target
+- **SentimentChart** — live pie chart, updates on each SSE event
+- **RecentComments** — live comment feed with subreddit badge per entry
 
 ## Development
 
@@ -151,33 +188,20 @@ sentiment-analyzer/
 # All tests with coverage
 pytest
 
-# Specific layers
-pytest backend/tests/domain/
+# By layer
+pytest backend/tests/application/
 pytest backend/tests/infrastructure/api/
 pytest backend/tests/infrastructure/messaging/
-pytest backend/tests/infrastructure/pipeline/
 pytest backend/tests/infrastructure/repositories/
-
-# Verbose
-pytest -v
-```
-
-### Code Quality
-
-```bash
-flake8 backend/
 ```
 
 ### Running Components Individually
 
 ```bash
-# Kafka infrastructure
-docker-compose --profile kafka up -d
-
-# Redis infrastructure
+# Infrastructure (Redis required)
 docker-compose --profile redis up -d
 
-# Backend API (starts uvicorn)
+# Backend API
 python -m backend.infrastructure.api.app
 
 # Consumer
@@ -192,25 +216,25 @@ cd frontend && npm run dev
 
 ## Configuration
 
-| Setting | Location | Default |
+| Setting | Env var / location | Default |
 |---|---|---|
-| Sentiment thresholds | `backend/domain/sentiment_service.py` | ±0.1 polarity |
-| Circular buffer size | `SQLiteCommentRepository(max_comments=...)` | 100 |
-| Database path | `SENTIMENT_DB_PATH` env var | `sentiment.db` |
-| Active broker | `BROKER` env var | `redis` |
-| Kafka brokers | `KAFKA_BOOTSTRAP_SERVERS` env var | `localhost:9092` |
-| Redis host | `REDIS_HOST` env var | `localhost` |
-| Redis port | `REDIS_PORT` env var | `6379` |
-| API port | `PORT` env var | `5000` |
-| CORS origins | `CORS_ORIGINS` env var | _(none)_ |
+| Message broker | `BROKER` | `redis` |
+| Kafka brokers | `KAFKA_BOOTSTRAP_SERVERS` | `localhost:9092` |
+| Redis host | `REDIS_HOST` | `localhost` |
+| Redis port | `REDIS_PORT` | `6379` |
+| Database path | `SENTIMENT_DB_PATH` | `sentiment.db` |
+| Circular buffer size | `SQLiteCommentRepository(max_comments=...)` | `100` |
+| Sentiment thresholds | `textblob_analyzer.py` | `±0.1 polarity` |
+| Default subreddit | `monitor_target.py` | `AskReddit` |
+| API port | `PORT` | `5000` |
+| CORS origins | `CORS_ORIGINS` | `http://localhost:4321` |
 
 ## Monitoring
 
 ```bash
-tail -f logs/app.log
 tail -f logs/consumer.log
-watch -n 5 'curl -s http://localhost:5000/api/stats | jq'
-curl -s http://localhost:5000/health   # quick health check
+curl -s http://localhost:5000/health
+curl -s http://localhost:5000/api/stats | jq
 ```
 
 ## Troubleshooting
@@ -218,24 +242,17 @@ curl -s http://localhost:5000/health   # quick health check
 **Package not found:**
 ```bash
 pip install -e ".[dev]"
-python -c "import backend.domain; print('OK')"
+```
+
+**No data appearing:**
+```bash
+tail -f logs/producer.log   # Check Reddit API credentials and monitor target
+tail -f logs/consumer.log   # Check broker connectivity
 ```
 
 **Port conflicts:**
 ```bash
 sudo lsof -i :4321,5000,6379,9092
-```
-
-**No data from Reddit:**
-```bash
-tail -f logs/producer.log   # Check Reddit API credentials
-tail -f logs/consumer.log   # Check broker connectivity
-```
-
-**Docker/broker issues:**
-```bash
-docker-compose logs
-sudo service docker start
 ```
 
 **Reset everything:**

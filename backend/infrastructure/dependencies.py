@@ -4,14 +4,17 @@ import logging
 import os
 from functools import lru_cache
 
+import redis
+
 from backend.application.services import ProcessCommentService
 from backend.domain.comment_publisher import CommentPublisher
 from backend.domain.comment_repository import CommentRepository
+from backend.domain.monitor_repository import MonitorRepository
 from backend.domain.sentiment_analyzer import SentimentAnalyzer
 from backend.infrastructure.messaging.live_stream import LiveEventStream
 from backend.infrastructure.messaging.redis_live_stream import RedisLiveStream
-from backend.infrastructure.monitor_config import create_redis_client
 from backend.infrastructure.nlp.textblob_analyzer import TextBlobSentimentAnalyzer
+from backend.infrastructure.repositories.redis_monitor_repository import RedisMonitorRepository
 from backend.infrastructure.repositories.sqlite_repository import SQLiteCommentRepository
 
 logger = logging.getLogger(__name__)
@@ -24,7 +27,15 @@ def get_repository() -> CommentRepository:
 
 @lru_cache(maxsize=1)
 def get_redis_client():
-    return create_redis_client()
+    return redis.Redis(
+        host=os.getenv("REDIS_HOST", "localhost"),
+        port=int(os.getenv("REDIS_PORT", "6379")),
+        decode_responses=True,
+    )
+
+
+def get_monitor_repository() -> MonitorRepository:
+    return RedisMonitorRepository(get_redis_client())
 
 
 @lru_cache(maxsize=1)

@@ -24,9 +24,10 @@ from backend.infrastructure.api.responses import (
     SentimentCountsResponse,
     StatsResponse,
 )
-from backend.infrastructure.dependencies import get_live_stream, get_redis_client, get_repository
+from backend.domain.monitor_repository import MonitorRepository
+from backend.infrastructure.dependencies import get_live_stream, get_monitor_repository, get_repository
+from backend.infrastructure.messaging.channels import COMMENTS_LIVE_CHANNEL
 from backend.infrastructure.messaging.live_stream import LiveEventStream
-from backend.infrastructure.monitor_config import get_monitor_target, set_monitor_target
 
 load_dotenv()
 
@@ -62,17 +63,17 @@ async def security_headers(request: Request, call_next) -> Any:
 
 
 @app.get("/api/monitor", response_model=MonitorConfigResponse)
-def get_monitor(redis=Depends(get_redis_client)) -> MonitorConfigResponse:
-    target = get_monitor_target(redis)
+def get_monitor(repo: MonitorRepository = Depends(get_monitor_repository)) -> MonitorConfigResponse:
+    target = repo.get()
     return MonitorConfigResponse(subreddit=target.subreddit, post_id=target.post_id)
 
 
 @app.post("/api/monitor", response_model=MonitorConfigResponse)
 def set_monitor(
     body: MonitorConfigRequest,
-    redis=Depends(get_redis_client),
+    repo: MonitorRepository = Depends(get_monitor_repository),
 ) -> MonitorConfigResponse:
-    target = set_monitor_target(redis, subreddit=body.subreddit, post_id=body.post_id)
+    target = repo.set(subreddit=body.subreddit, post_id=body.post_id)
     logger.info(
         f"Monitor target updated: r/{target.subreddit}"
         + (f" post={target.post_id}" if target.post_id else "")
@@ -80,20 +81,15 @@ def set_monitor(
     return MonitorConfigResponse(subreddit=target.subreddit, post_id=target.post_id)
 
 
-def _matches_filter(event_data: dict, subreddit: str | None) -> bool:
-    return subreddit is None or event_data.get("subreddit") == subreddit
-
-
 @app.get("/api/stream")
 async def stream(
-    subreddit: str | None = Query(default=None),
     live_stream: LiveEventStream = Depends(get_live_stream),
 ) -> StreamingResponse:
     async def event_generator():
-        async for data in live_stream.subscribe("comments:live"):
+        async for data in live_stream.subscribe(COMMENTS_LIVE_CHANNEL):
             if data is None:
                 yield ": keepalive\n\n"
-            elif _matches_filter(data, subreddit):
+            else:
                 yield f"event: comment\ndata: {json.dumps(data)}\n\n"
 
     return StreamingResponse(

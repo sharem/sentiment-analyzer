@@ -7,13 +7,13 @@ import time
 
 from dotenv import load_dotenv
 import praw
+
+from backend.domain.monitor_repository import MonitorRepository
+from backend.domain.monitor_target import MonitorTarget
+from backend.infrastructure.dependencies import get_monitor_repository
 from backend.infrastructure.messaging.broker_factory import create_broker
+from backend.infrastructure.messaging.channels import COMMENTS_TOPIC
 from backend.infrastructure.messaging.message_broker import BrokerError, MessageBroker
-from backend.infrastructure.monitor_config import (
-    MonitorTarget,
-    create_redis_client,
-    get_monitor_target,
-)
 
 load_dotenv()
 
@@ -46,13 +46,13 @@ def create_reddit_client():
 
 
 def _stream_subreddit(
-    reddit, broker: MessageBroker, redis_client, current_target: MonitorTarget
+    reddit, broker: MessageBroker, monitor_repo: MonitorRepository, current_target: MonitorTarget
 ) -> MonitorTarget:
     """Stream new comments from a subreddit until the monitor config changes."""
     logger.info(f"Streaming comments from r/{current_target.subreddit}...")
     subreddit = reddit.subreddit(current_target.subreddit)
     for comment in subreddit.stream.comments(skip_existing=True):
-        new_target = get_monitor_target(redis_client)
+        new_target = monitor_repo.get()
         if new_target != current_target:
             logger.info(
                 f"Monitor target changed to r/{new_target.subreddit}"
@@ -60,7 +60,7 @@ def _stream_subreddit(
             )
             return new_target
         try:
-            broker.publish("reddit-comments", {
+            broker.publish(COMMENTS_TOPIC, {
                 "text": comment.body,
                 "subreddit": current_target.subreddit,
             })
@@ -74,7 +74,7 @@ def _stream_subreddit(
 
 
 def _poll_post(
-    reddit, broker: MessageBroker, redis_client, current_target: MonitorTarget
+    reddit, broker: MessageBroker, monitor_repo: MonitorRepository, current_target: MonitorTarget
 ) -> MonitorTarget:
     """Poll a specific post for new comments until the monitor config changes."""
     logger.info(
@@ -82,7 +82,7 @@ def _poll_post(
     )
     seen: set[str] = set()
     while True:
-        new_target = get_monitor_target(redis_client)
+        new_target = monitor_repo.get()
         if new_target != current_target:
             logger.info(
                 f"Monitor target changed to r/{new_target.subreddit}"
@@ -95,7 +95,7 @@ def _poll_post(
             for comment in submission.comments.list():
                 if comment.id not in seen:
                     seen.add(comment.id)
-                    broker.publish("reddit-comments", {
+                    broker.publish(COMMENTS_TOPIC, {
                         "text": comment.body,
                         "subreddit": current_target.subreddit,
                         "post_id": current_target.post_id,
@@ -108,23 +108,23 @@ def _poll_post(
         time.sleep(10)
 
 
-def main(broker: MessageBroker | None = None, redis_client=None) -> None:
+def main(broker: MessageBroker | None = None, monitor_repo: MonitorRepository | None = None) -> None:
     """Main producer loop — monitors the target set in Redis."""
     reddit = create_reddit_client()
     broker = broker or create_broker()
-    redis_client = redis_client or create_redis_client()
+    monitor_repo = monitor_repo or get_monitor_repository()
 
     try:
-        current_target = get_monitor_target(redis_client)
+        current_target = monitor_repo.get()
         logger.info(
             f"Starting producer — initial target: r/{current_target.subreddit}"
             + (f" post={current_target.post_id}" if current_target.post_id else "")
         )
         while True:
             if current_target.post_id:
-                current_target = _poll_post(reddit, broker, redis_client, current_target)
+                current_target = _poll_post(reddit, broker, monitor_repo, current_target)
             else:
-                current_target = _stream_subreddit(reddit, broker, redis_client, current_target)
+                current_target = _stream_subreddit(reddit, broker, monitor_repo, current_target)
     except KeyboardInterrupt:
         logger.info("Shutdown requested... exiting gracefully")
     except praw.exceptions.APIException as e:
