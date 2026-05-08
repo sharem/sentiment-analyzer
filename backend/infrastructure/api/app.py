@@ -24,9 +24,9 @@ from backend.infrastructure.api.responses import (
     SentimentCountsResponse,
     StatsResponse,
 )
-from backend.infrastructure.dependencies import get_live_stream, get_redis_client, get_repository
+from backend.domain.monitor_repository import MonitorRepository
+from backend.infrastructure.dependencies import get_live_stream, get_monitor_repository, get_repository
 from backend.infrastructure.messaging.live_stream import LiveEventStream
-from backend.infrastructure.monitor_config import get_monitor_target, set_monitor_target
 
 load_dotenv()
 
@@ -62,17 +62,17 @@ async def security_headers(request: Request, call_next) -> Any:
 
 
 @app.get("/api/monitor", response_model=MonitorConfigResponse)
-def get_monitor(redis=Depends(get_redis_client)) -> MonitorConfigResponse:
-    target = get_monitor_target(redis)
+def get_monitor(repo: MonitorRepository = Depends(get_monitor_repository)) -> MonitorConfigResponse:
+    target = repo.get()
     return MonitorConfigResponse(subreddit=target.subreddit, post_id=target.post_id)
 
 
 @app.post("/api/monitor", response_model=MonitorConfigResponse)
 def set_monitor(
     body: MonitorConfigRequest,
-    redis=Depends(get_redis_client),
+    repo: MonitorRepository = Depends(get_monitor_repository),
 ) -> MonitorConfigResponse:
-    target = set_monitor_target(redis, subreddit=body.subreddit, post_id=body.post_id)
+    target = repo.set(subreddit=body.subreddit, post_id=body.post_id)
     logger.info(
         f"Monitor target updated: r/{target.subreddit}"
         + (f" post={target.post_id}" if target.post_id else "")

@@ -3,7 +3,7 @@ from unittest.mock import MagicMock
 from fastapi.testclient import TestClient
 
 from backend.infrastructure.api.app import app
-from backend.infrastructure.dependencies import get_redis_client, get_repository
+from backend.infrastructure.dependencies import get_repository
 
 
 @pytest.fixture
@@ -12,15 +12,6 @@ def mock_repo():
     app.dependency_overrides[get_repository] = lambda: mock
     yield mock
     app.dependency_overrides.clear()
-
-
-@pytest.fixture
-def mock_redis():
-    mock = MagicMock()
-    mock.get.return_value = None  # default: no config stored yet
-    app.dependency_overrides[get_redis_client] = lambda: mock
-    yield mock
-    app.dependency_overrides.pop(get_redis_client, None)
 
 
 @pytest.fixture
