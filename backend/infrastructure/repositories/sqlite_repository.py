@@ -2,7 +2,7 @@ import logging
 import os
 import sqlite3
 from datetime import datetime
-from typing import Any, Dict, List, Optional
+from typing import Any
 
 from backend.domain.comment import Comment, Sentiment
 from backend.domain.comment_repository import CommentRepository
@@ -86,8 +86,8 @@ class SQLiteCommentRepository(CommentRepository):
             """, (self._max_comments,))
 
     def get_recent_comments(
-        self, limit: Optional[int] = None, subreddit: Optional[str] = None
-    ) -> List[Comment]:
+        self, limit: int | None = None, subreddit: str | None = None
+    ) -> list[Comment]:
         where = "WHERE subreddit = ?" if subreddit else ""
         params_filter = (subreddit,) if subreddit else ()
         with self._get_connection() as conn:
@@ -119,7 +119,7 @@ class SQLiteCommentRepository(CommentRepository):
             for row in rows
         ]
 
-    def get_sentiment_counts(self, subreddit: Optional[str] = None) -> Dict[str, int]:
+    def get_sentiment_counts(self, subreddit: str | None = None) -> dict[str, int]:
         where = "WHERE subreddit = ?" if subreddit else ""
         params = (subreddit,) if subreddit else ()
         with self._get_connection() as conn:
@@ -128,12 +128,12 @@ class SQLiteCommentRepository(CommentRepository):
                 FROM comments {where}
                 GROUP BY sentiment
             """, params).fetchall()
-        counts: Dict[str, int] = {s.value: 0 for s in Sentiment}
+        counts: dict[str, int] = {s.value: 0 for s in Sentiment}
         for row in rows:
             counts[row["sentiment"]] = row["count"]
         return counts
 
-    def get_stats(self, subreddit: Optional[str] = None) -> Dict[str, Any]:
+    def get_stats(self, subreddit: str | None = None) -> dict[str, Any]:
         where = "WHERE subreddit = ?" if subreddit else ""
         params = (subreddit,) if subreddit else ()
         with self._get_connection() as conn:
@@ -143,15 +143,6 @@ class SQLiteCommentRepository(CommentRepository):
                        MAX(created_at) as newest
                 FROM comments {where}
             """, params).fetchone()
-            count_rows = conn.execute(f"""
-                SELECT sentiment, COUNT(*) as count
-                FROM comments {where}
-                GROUP BY sentiment
-            """, params).fetchall()
-
-        counts: Dict[str, int] = {s.value: 0 for s in Sentiment}
-        for r in count_rows:
-            counts[r["sentiment"]] = r["count"]
 
         return {
             "total_comments": row["total"],
@@ -161,5 +152,5 @@ class SQLiteCommentRepository(CommentRepository):
             "newest_comment_timestamp": (
                 datetime.fromisoformat(row["newest"]) if row["newest"] else None
             ),
-            "sentiment_counts": counts,
+            "sentiment_counts": self.get_sentiment_counts(subreddit=subreddit),
         }

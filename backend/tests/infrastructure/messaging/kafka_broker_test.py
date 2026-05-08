@@ -10,50 +10,16 @@ KAFKA_PRODUCER_PATCH = "backend.infrastructure.messaging.kafka_broker.KafkaProdu
 SLEEP_PATCH = "backend.infrastructure.messaging.kafka_broker.time.sleep"
 
 
-class TestKafkaBrokerConsumerRetry:
-    def test_returns_consumer_on_first_attempt(self, mocker):
-        mock_consumer = mocker.MagicMock()
-        mocker.patch(KAFKA_CONSUMER_PATCH, return_value=mock_consumer)
-        mocker.patch(SLEEP_PATCH)
+def _make_consumer(mocker, messages):
+    mock_consumer = mocker.MagicMock()
+    mock_consumer.__iter__ = mocker.Mock(return_value=iter(messages))
+    return mock_consumer
 
-        broker = KafkaBroker()
-        assert broker._get_consumer("test-topic") is mock_consumer
 
-    def test_retries_on_kafka_error_then_succeeds(self, mocker):
-        mock_consumer = mocker.MagicMock()
-        mocker.patch(
-            KAFKA_CONSUMER_PATCH,
-            side_effect=[KafkaError("fail"), KafkaError("fail"), mock_consumer],
-        )
-        mock_sleep = mocker.patch(SLEEP_PATCH)
-
-        broker = KafkaBroker(consumer_retries=5)
-        result = broker._get_consumer("test-topic")
-
-        assert result is mock_consumer
-        assert mock_sleep.call_count == 2
-        mock_sleep.assert_any_call(1)   # 2**0
-        mock_sleep.assert_any_call(2)   # 2**1
-
-    def test_exits_after_exhausting_all_retries(self, mocker):
-        mocker.patch(KAFKA_CONSUMER_PATCH, side_effect=KafkaError("fail"))
-        mocker.patch(SLEEP_PATCH)
-
-        broker = KafkaBroker(consumer_retries=3)
-        with pytest.raises(SystemExit) as exc:
-            broker._get_consumer("test-topic")
-        assert exc.value.code == 1
-
-    def test_exponential_backoff_values(self, mocker):
-        mocker.patch(KAFKA_CONSUMER_PATCH, side_effect=KafkaError("fail"))
-        mock_sleep = mocker.patch(SLEEP_PATCH)
-
-        broker = KafkaBroker(consumer_retries=4)
-        with pytest.raises(SystemExit):
-            broker._get_consumer("test-topic")
-
-        sleep_args = [call.args[0] for call in mock_sleep.call_args_list]
-        assert sleep_args == [1, 2, 4, 8]   # 2**0 … 2**3
+def _make_message(mocker, value):
+    msg = mocker.MagicMock()
+    msg.value = value
+    return msg
 
 
 class TestKafkaBrokerPublish:
@@ -63,8 +29,7 @@ class TestKafkaBrokerPublish:
         mock_producer.send.return_value = mock_future
         mocker.patch(KAFKA_PRODUCER_PATCH, return_value=mock_producer)
 
-        broker = KafkaBroker()
-        broker.publish("test-topic", {"text": "hello"})
+        KafkaBroker().publish("test-topic", {"text": "hello"})
 
         mock_producer.send.assert_called_once_with("test-topic", value={"text": "hello"})
         mock_future.get.assert_called_once_with(timeout=10)
@@ -74,50 +39,82 @@ class TestKafkaBrokerPublish:
         mock_producer.send.side_effect = KafkaError("send failed")
         mocker.patch(KAFKA_PRODUCER_PATCH, return_value=mock_producer)
 
-        broker = KafkaBroker()
         with pytest.raises(BrokerError):
-            broker.publish("test-topic", {"text": "hello"})
+            KafkaBroker().publish("test-topic", {"text": "hello"})
+
+    def test_raises_broker_error_when_producer_fails_to_connect(self, mocker):
+        mocker.patch(KAFKA_PRODUCER_PATCH, side_effect=KafkaError("connection refused"))
+
+        with pytest.raises(BrokerError):
+            KafkaBroker().publish("test-topic", {"text": "hello"})
 
 
 class TestKafkaBrokerConsume:
     def test_yields_message_values(self, mocker):
-        msg1 = mocker.MagicMock()
-        msg1.value = {"text": "first"}
-        msg2 = mocker.MagicMock()
-        msg2.value = {"text": "second"}
+        messages = [_make_message(mocker, {"text": v}) for v in ("first", "second")]
+        mocker.patch(KAFKA_CONSUMER_PATCH, return_value=_make_consumer(mocker, messages))
+        mocker.patch(SLEEP_PATCH)
 
-        mock_consumer = mocker.MagicMock()
-        mock_consumer.__iter__ = mocker.Mock(return_value=iter([msg1, msg2]))
-        mocker.patch(KAFKA_CONSUMER_PATCH, return_value=mock_consumer)
+        result = list(KafkaBroker().consume("test-topic"))
 
-        broker = KafkaBroker()
-        messages = list(broker.consume("test-topic"))
+        assert result == [{"text": "first"}, {"text": "second"}]
 
-        assert messages == [{"text": "first"}, {"text": "second"}]
+    def test_retries_on_kafka_error_then_yields_messages(self, mocker):
+        msg = _make_message(mocker, {"text": "hello"})
+        mock_consumer = _make_consumer(mocker, [msg])
+        mocker.patch(
+            KAFKA_CONSUMER_PATCH,
+            side_effect=[KafkaError("fail"), KafkaError("fail"), mock_consumer],
+        )
+        mock_sleep = mocker.patch(SLEEP_PATCH)
+
+        result = list(KafkaBroker(consumer_retries=5).consume("test-topic"))
+
+        assert result == [{"text": "hello"}]
+        assert mock_sleep.call_count == 2
+        mock_sleep.assert_any_call(1)   # 2**0
+        mock_sleep.assert_any_call(2)   # 2**1
+
+    def test_raises_broker_error_after_exhausting_retries(self, mocker):
+        mocker.patch(KAFKA_CONSUMER_PATCH, side_effect=KafkaError("fail"))
+        mocker.patch(SLEEP_PATCH)
+
+        with pytest.raises(BrokerError):
+            list(KafkaBroker(consumer_retries=3).consume("test-topic"))
+
+    def test_uses_exponential_backoff(self, mocker):
+        mocker.patch(KAFKA_CONSUMER_PATCH, side_effect=KafkaError("fail"))
+        mock_sleep = mocker.patch(SLEEP_PATCH)
+
+        with pytest.raises(BrokerError):
+            list(KafkaBroker(consumer_retries=4).consume("test-topic"))
+
+        assert [c.args[0] for c in mock_sleep.call_args_list] == [1, 2, 4, 8]
 
 
 class TestKafkaBrokerClose:
     def test_flushes_and_closes_producer_if_initialized(self, mocker):
         mock_producer = mocker.MagicMock()
+        mock_producer.send.return_value = mocker.MagicMock()
         mocker.patch(KAFKA_PRODUCER_PATCH, return_value=mock_producer)
 
         broker = KafkaBroker()
-        broker._get_producer()
+        broker.publish("test-topic", {"text": "hello"})
         broker.close()
 
         mock_producer.flush.assert_called_once()
         mock_producer.close.assert_called_once()
 
     def test_closes_consumer_if_initialized(self, mocker):
-        mock_consumer = mocker.MagicMock()
+        msg = _make_message(mocker, {"text": "hello"})
+        mock_consumer = _make_consumer(mocker, [msg])
         mocker.patch(KAFKA_CONSUMER_PATCH, return_value=mock_consumer)
 
         broker = KafkaBroker()
-        broker._get_consumer("test-topic")
+        list(broker.consume("test-topic"))
         broker.close()
 
         mock_consumer.close.assert_called_once()
 
     def test_close_is_noop_if_nothing_initialized(self):
-        broker = KafkaBroker()
-        broker.close()  # should not raise
+        KafkaBroker().close()  # must not raise

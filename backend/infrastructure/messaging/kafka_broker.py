@@ -3,7 +3,6 @@
 import json
 import logging
 import os
-import sys
 import time
 from collections.abc import Iterator
 
@@ -40,7 +39,7 @@ class KafkaBroker(MessageBroker):
                 logger.info("Kafka producer created successfully")
             except KafkaError as e:
                 logger.error(f"Failed to create Kafka producer: {e}")
-                sys.exit(1)
+                raise
         return self._producer
 
     def _get_consumer(self, topic: str) -> KafkaConsumer:
@@ -64,7 +63,7 @@ class KafkaBroker(MessageBroker):
                     )
                     time.sleep(wait)
             logger.error("Could not connect to Kafka after multiple attempts")
-            sys.exit(1)
+            raise KafkaError("Could not connect to Kafka after multiple attempts")
         return self._consumer
 
     def publish(self, topic: str, message: dict) -> None:
@@ -76,8 +75,8 @@ class KafkaBroker(MessageBroker):
             raise BrokerError(str(e)) from e
 
     def consume(self, topic: str) -> Iterator[dict]:
-        consumer = self._get_consumer(topic)
         try:
+            consumer = self._get_consumer(topic)
             for message in consumer:
                 yield message.value
         except KafkaError as e:
