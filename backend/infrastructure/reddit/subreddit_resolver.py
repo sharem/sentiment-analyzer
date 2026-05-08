@@ -1,17 +1,8 @@
 import os
-from abc import ABC, abstractmethod
 
 import requests as http_requests
 
-
-class SubredditNotFoundError(Exception):
-    pass
-
-
-class SubredditResolver(ABC):
-    @abstractmethod
-    def resolve(self, name: str) -> str:
-        """Return the canonical display name, or raise SubredditNotFoundError."""
+from backend.application.ports.subreddit_resolver import SubredditNotFoundError, SubredditResolver
 
 
 class HttpSubredditResolver(SubredditResolver):

@@ -2,7 +2,7 @@
 
 import logging
 
-from backend.application.services import ProcessCommentService
+from backend.application.process_comment_service import ProcessCommentService
 from backend.infrastructure.dependencies import get_process_comment_service
 from backend.infrastructure.messaging.broker_factory import create_broker
 from backend.infrastructure.messaging.channels import COMMENTS_TOPIC

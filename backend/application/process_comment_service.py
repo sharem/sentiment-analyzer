@@ -4,9 +4,9 @@ import time
 from datetime import datetime, timezone
 
 from backend.domain.comment import Comment
-from backend.domain.comment_publisher import CommentPublisher
-from backend.domain.comment_repository import CommentRepository
-from backend.domain.sentiment_analyzer import SentimentAnalyzer
+from backend.application.ports.comment_publisher import CommentPublisher
+from backend.application.ports.comment_repository import CommentRepository
+from backend.application.ports.sentiment_analyzer import SentimentAnalyzer
 
 logger = logging.getLogger(__name__)
 

@@ -1,6 +1,6 @@
 import json
 
-from backend.domain.monitor_repository import MonitorRepository
+from backend.application.ports.monitor_repository import MonitorRepository
 from backend.domain.monitor_target import MonitorTarget
 
 _CONFIG_KEY = "monitor:config"

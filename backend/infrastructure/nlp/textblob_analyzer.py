@@ -1,7 +1,7 @@
 from textblob import TextBlob
 
 from backend.domain.comment import Sentiment
-from backend.domain.sentiment_analyzer import SentimentAnalyzer
+from backend.application.ports.sentiment_analyzer import SentimentAnalyzer
 
 POSITIVE_THRESHOLD = 0.1
 NEGATIVE_THRESHOLD = -0.1

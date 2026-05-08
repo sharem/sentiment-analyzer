@@ -3,7 +3,8 @@ from unittest.mock import MagicMock, patch
 import pytest
 import requests as http_requests
 
-from backend.infrastructure.reddit.subreddit_resolver import HttpSubredditResolver, SubredditNotFoundError
+from backend.application.ports.subreddit_resolver import SubredditNotFoundError
+from backend.infrastructure.reddit.subreddit_resolver import HttpSubredditResolver
 
 
 @pytest.fixture

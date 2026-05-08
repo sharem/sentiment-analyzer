@@ -3,7 +3,7 @@ import logging
 
 import pytest
 
-from backend.application.services import ProcessCommentService
+from backend.application.process_comment_service import ProcessCommentService
 from backend.domain.comment import Sentiment
 
 
