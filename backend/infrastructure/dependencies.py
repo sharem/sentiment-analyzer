@@ -80,7 +80,6 @@ def get_comment_publisher() -> CommentPublisher | None:
         return None
 
 
-@lru_cache(maxsize=1)
 def get_process_comment_service() -> ProcessCommentService:
     return ProcessCommentService(
         repo=get_repository(),
