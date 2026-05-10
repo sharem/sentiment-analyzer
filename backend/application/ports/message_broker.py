@@ -1,4 +1,4 @@
-"""MessageBroker — abstract interface for publish/consume adapters."""
+"""MessageBroker — driven port for publish/consume adapters."""
 
 from abc import ABC, abstractmethod
 from collections.abc import Iterator
@@ -10,13 +10,10 @@ class BrokerError(Exception):
 
 class MessageBroker(ABC):
     @abstractmethod
-    def publish(self, topic: str, message: dict) -> None:
-        pass
+    def publish(self, topic: str, message: dict) -> None: ...
 
     @abstractmethod
-    def consume(self, topic: str) -> Iterator[dict]:
-        pass
+    def consume(self, topic: str) -> Iterator[dict]: ...
 
     @abstractmethod
-    def close(self) -> None:
-        pass
+    def close(self) -> None: ...

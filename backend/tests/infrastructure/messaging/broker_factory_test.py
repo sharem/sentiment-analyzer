@@ -46,3 +46,20 @@ class TestCreateBroker:
         create_broker()
 
         mock_redis.assert_called_once()
+
+    def test_returns_kafka_broker_when_env_is_kafka(self, mocker):
+        mock_kafka = mocker.patch(KAFKA_BROKER_PATCH)
+        mocker.patch.dict(os.environ, {"BROKER": "kafka"})
+
+        result = create_broker()
+
+        mock_kafka.assert_called_once()
+        assert result is mock_kafka.return_value
+
+    def test_kafka_selection_is_case_insensitive(self, mocker):
+        mock_kafka = mocker.patch(KAFKA_BROKER_PATCH)
+        mocker.patch.dict(os.environ, {"BROKER": "KAFKA"})
+
+        create_broker()
+
+        mock_kafka.assert_called_once()

@@ -4,7 +4,7 @@ from unittest.mock import MagicMock
 import pytest
 
 from backend.domain.monitor_target import MonitorTarget
-from backend.infrastructure.messaging.message_broker import BrokerError
+from backend.application.ports.message_broker import BrokerError
 from backend.infrastructure.pipeline.producer import create_reddit_client, main
 
 _CREATE_CLIENT = "backend.infrastructure.pipeline.producer.create_reddit_client"
@@ -180,4 +180,142 @@ class TestMain:
         mock_reddit.submission.return_value = submission
 
         main(broker=broker, monitor_repo=monitor_repo)  # must not raise
- 
+
+
+    # --- monitor target lifecycle ---
+
+    def test_waits_for_target_before_streaming(self, mocker):
+        mocker.patch("time.sleep")
+        mock_reddit = MagicMock()
+        mocker.patch(_CREATE_CLIENT, return_value=mock_reddit)
+        ready_target = MonitorTarget(subreddit="python")
+        monitor_repo = MagicMock()
+        # First two polls: no target; third: target appears.
+        monitor_repo.get.side_effect = [
+            MonitorTarget(),
+            MonitorTarget(),
+            ready_target,
+            ready_target,
+            KeyboardInterrupt,
+        ]
+        broker = MagicMock()
+        mock_reddit.subreddit.return_value.stream.comments.return_value = iter([
+            _make_comment("hello", "c1"),
+            _make_comment("world", "c2"),
+        ])
+
+        main(broker=broker, monitor_repo=monitor_repo)
+
+        broker.close.assert_called_once()
+
+    def test_target_change_during_subreddit_stream_switches_target(self, mocker):
+        mocker.patch("time.sleep")
+        mock_reddit = MagicMock()
+        mocker.patch(_CREATE_CLIENT, return_value=mock_reddit)
+
+        first = MonitorTarget(subreddit="python")
+        second = MonitorTarget(subreddit="rust")
+        monitor_repo = MagicMock()
+        monitor_repo.get.side_effect = [first, second, KeyboardInterrupt]
+        mock_reddit.subreddit.return_value.stream.comments.side_effect = [
+            iter([_make_comment("hello", "c1")]),
+            iter([_make_comment("world", "c2")]),
+        ]
+        broker = MagicMock()
+
+        main(broker=broker, monitor_repo=monitor_repo)
+
+        called_subreddits = [c.args[0] for c in mock_reddit.subreddit.call_args_list]
+        assert "rust" in called_subreddits
+
+    def test_target_change_to_post_during_subreddit_stream(self, mocker):
+        mocker.patch("time.sleep")
+        mock_reddit = MagicMock()
+        mocker.patch(_CREATE_CLIENT, return_value=mock_reddit)
+
+        first = MonitorTarget(subreddit="python")
+        post_target = MonitorTarget(subreddit="python", post_id="abc")
+        monitor_repo = MagicMock()
+        # 1: _wait_for_target; 2: _stream_subreddit (triggers switch); 3: _poll_post first iter; 4: exit
+        monitor_repo.get.side_effect = [first, post_target, post_target, KeyboardInterrupt]
+        mock_reddit.subreddit.return_value.stream.comments.return_value = iter([
+            _make_comment("hello", "c1")
+        ])
+
+        submission = MagicMock()
+        submission.comments.list.return_value = [_make_comment("post-comment", "c1")]
+        mock_reddit.submission.return_value = submission
+        broker = MagicMock()
+
+        main(broker=broker, monitor_repo=monitor_repo)
+
+        mock_reddit.submission.assert_called()
+
+    def test_swallows_unexpected_exception_in_stream(self, mocker):
+        mocker.patch("time.sleep")
+        mock_reddit = MagicMock()
+        mocker.patch(_CREATE_CLIENT, return_value=mock_reddit)
+
+        target = MonitorTarget(subreddit="python")
+        broker = MagicMock()
+        broker.publish.side_effect = [RuntimeError("oops"), KeyboardInterrupt]
+        monitor_repo = MagicMock()
+        monitor_repo.get.return_value = target
+        mock_reddit.subreddit.return_value.stream.comments.return_value = [
+            _make_comment("first", "c1"),
+            _make_comment("second", "c2"),
+        ]
+
+        main(broker=broker, monitor_repo=monitor_repo)  # must not raise
+
+        broker.close.assert_called_once()
+
+    def test_swallows_unexpected_exception_in_post_poll(self, mocker):
+        mocker.patch("time.sleep")
+        mock_reddit = MagicMock()
+        mocker.patch(_CREATE_CLIENT, return_value=mock_reddit)
+
+        target = MonitorTarget(subreddit="python", post_id="abc")
+        broker = MagicMock()
+        monitor_repo = MagicMock()
+        monitor_repo.get.side_effect = [target, target, KeyboardInterrupt]
+        submission = MagicMock()
+        submission.comments.replace_more.side_effect = RuntimeError("api down")
+        mock_reddit.submission.return_value = submission
+
+        main(broker=broker, monitor_repo=monitor_repo)  # must not raise
+
+        broker.close.assert_called_once()
+
+    def test_handles_unexpected_top_level_exception(self, mocker):
+        mocker.patch("time.sleep")
+        mock_reddit = MagicMock()
+        mocker.patch(_CREATE_CLIENT, return_value=mock_reddit)
+
+        broker = MagicMock()
+        monitor_repo = MagicMock()
+        monitor_repo.get.side_effect = RuntimeError("redis dead")
+
+        main(broker=broker, monitor_repo=monitor_repo)  # must not raise
+
+        broker.close.assert_called_once()
+
+    def test_falls_back_to_default_broker_and_monitor_repo(self, mocker):
+        mocker.patch("time.sleep")
+        mock_reddit = MagicMock()
+        mocker.patch(_CREATE_CLIENT, return_value=mock_reddit)
+        default_broker = MagicMock()
+        default_monitor = MagicMock()
+        default_monitor.get.side_effect = KeyboardInterrupt
+        mocker.patch(
+            "backend.infrastructure.pipeline.producer.create_broker",
+            return_value=default_broker,
+        )
+        mocker.patch(
+            "backend.infrastructure.pipeline.producer.get_monitor_repository",
+            return_value=default_monitor,
+        )
+
+        main()
+
+        default_broker.close.assert_called_once()

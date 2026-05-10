@@ -2,7 +2,7 @@ import pytest
 from kafka.errors import KafkaError
 
 from backend.infrastructure.messaging.kafka_broker import KafkaBroker
-from backend.infrastructure.messaging.message_broker import BrokerError
+from backend.application.ports.message_broker import BrokerError
 
 
 KAFKA_CONSUMER_PATCH = "backend.infrastructure.messaging.kafka_broker.KafkaConsumer"
@@ -118,3 +118,18 @@ class TestKafkaBrokerClose:
 
     def test_close_is_noop_if_nothing_initialized(self):
         KafkaBroker().close()  # must not raise
+
+
+class TestKafkaBrokerConsumerCaching:
+    def test_reuses_cached_consumer_across_calls(self, mocker):
+        msg = _make_message(mocker, {"text": "hello"})
+        mock_consumer = _make_consumer(mocker, [msg])
+        kafka_class = mocker.patch(KAFKA_CONSUMER_PATCH, return_value=mock_consumer)
+
+        broker = KafkaBroker()
+        list(broker.consume("test-topic"))
+        # second call must reuse the cached consumer; KafkaConsumer should not be re-instantiated
+        mock_consumer.__iter__ = mocker.Mock(return_value=iter([]))
+        list(broker.consume("test-topic"))
+
+        assert kafka_class.call_count == 1

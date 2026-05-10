@@ -7,7 +7,7 @@ from collections.abc import Iterator
 
 import redis
 
-from backend.infrastructure.messaging.message_broker import BrokerError, MessageBroker
+from backend.application.ports.message_broker import BrokerError, MessageBroker
 
 logger = logging.getLogger(__name__)
 

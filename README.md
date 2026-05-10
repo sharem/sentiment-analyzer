@@ -40,11 +40,13 @@ sentiment-analyzer/
 │   │   ├── ports/                       # Driven ports (ABCs) — no infrastructure imports
 │   │   │   ├── comment_repository.py    # Port: persist and query Comments
 │   │   │   ├── comment_publisher.py     # Port: publish a processed Comment
+│   │   │   ├── message_broker.py        # Port: publish/consume on a transport + BrokerError
 │   │   │   ├── monitor_repository.py    # Port: read/write the active monitor target
 │   │   │   ├── sentiment_analyzer.py    # Port: classify text → (Sentiment, polarity)
 │   │   │   ├── live_stream.py           # Port: subscribe to the SSE event stream
 │   │   │   └── subreddit_resolver.py    # Port: resolve a subreddit name + SubredditNotFoundError
-│   │   ├── process_comment_service.py   # Use case: analyse a raw comment and persist it
+│   │   ├── raw_comment.py               # DTO: inbound wire shape shared by producer/consumer
+│   │   ├── process_comment_service.py   # Use case: analyse a RawComment and persist it
 │   │   └── configure_monitor_service.py # Use case: validate and switch the monitor target
 │   ├── infrastructure/
 │   │   ├── api/
@@ -54,7 +56,6 @@ sentiment-analyzer/
 │   │   │   └── exception_handlers.py    # Centralised HTTP exception handlers
 │   │   ├── messaging/
 │   │   │   ├── channels.py              # Shared topic/channel name constants
-│   │   │   ├── message_broker.py        # MessageBroker port + BrokerError
 │   │   │   ├── broker_factory.py        # Instantiates broker from BROKER env var
 │   │   │   ├── kafka_broker.py          # Kafka adapter
 │   │   │   ├── redis_broker.py          # Redis Pub/Sub adapter (pipeline transport)

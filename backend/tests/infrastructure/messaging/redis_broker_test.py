@@ -4,7 +4,7 @@ import os
 import pytest
 import redis
 
-from backend.infrastructure.messaging.message_broker import BrokerError
+from backend.application.ports.message_broker import BrokerError
 from backend.infrastructure.messaging.redis_broker import RedisBroker
 
 
@@ -73,6 +73,16 @@ class TestRedisBrokerConsume:
 
         mock_pubsub.subscribe.assert_called_once_with("my-topic")
         assert messages == [{"text": "hello"}, {"text": "world"}]
+
+    def test_raises_broker_error_on_redis_error_during_consume(self, mocker):
+        mock_client = mocker.MagicMock()
+        mock_pubsub = mocker.MagicMock()
+        mock_client.pubsub.return_value = mock_pubsub
+        mock_pubsub.listen.side_effect = redis.RedisError("connection lost")
+        mocker.patch(REDIS_CLASS_PATCH, return_value=mock_client)
+
+        with pytest.raises(BrokerError):
+            list(RedisBroker().consume("my-topic"))
 
     def test_skips_non_message_events(self, mocker):
         mock_client = mocker.MagicMock()

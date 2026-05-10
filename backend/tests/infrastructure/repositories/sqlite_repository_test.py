@@ -62,6 +62,23 @@ class TestPersistence:
 
 
 
+class TestClear:
+    def test_clear_removes_all_comments(self, service, make_comment):
+        service.add_comment(make_comment("a", "positive", 0.5))
+        service.add_comment(make_comment("b", "negative", -0.5))
+        assert len(service.get_recent_comments()) == 2
+
+        service.clear()
+
+        assert service.get_recent_comments() == []
+        assert service.get_sentiment_counts() == {"positive": 0, "negative": 0, "neutral": 0}
+
+    def test_clear_is_idempotent_on_empty_db(self, service):
+        service.clear()
+        service.clear()
+        assert service.get_recent_comments() == []
+
+
 class TestEdgeCases:
     def test_empty_string_comment(self, service, make_comment):
         service.add_comment(make_comment("", "neutral", 0.0))
