@@ -5,7 +5,7 @@ import json
 import pytest
 
 from backend.infrastructure.api.app import app
-from backend.infrastructure.dependencies import get_live_stream
+from backend.infrastructure.composition import get_live_stream
 from backend.application.ports.live_stream import LiveEventStream
 
 

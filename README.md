@@ -70,7 +70,8 @@ sentiment-analyzer/
 │   │   ├── repositories/
 │   │   │   ├── sqlite_repository.py     # Adapter: SQLiteCommentRepository
 │   │   │   └── redis_monitor_repository.py  # Adapter: RedisMonitorRepository
-│   │   └── dependencies.py              # DI providers for FastAPI and pipeline
+│   │   ├── composition.py               # Framework-free composition root (factories used by every entry point)
+│   │   └── fastapi_deps.py              # FastAPI Depends() wrappers around composition
 │   └── tests/
 │       ├── application/                 # Use case unit tests
 │       └── infrastructure/

@@ -1,4 +1,8 @@
-"""Shared dependency providers for FastAPI (Depends) and pipeline (direct call)."""
+"""Framework-free composition root.
+
+Wires application use cases to their concrete adapters. No web-framework
+imports — safe to use from any entry point (HTTP, pipeline workers, CLI, tests).
+"""
 
 import logging
 import os
@@ -6,9 +10,6 @@ from functools import lru_cache
 
 import redis
 
-from fastapi import Depends
-
-from backend.application.configure_monitor_service import ConfigureMonitorService
 from backend.application.ports.comment_publisher import CommentPublisher
 from backend.application.ports.comment_repository import CommentRepository
 from backend.application.ports.live_stream import LiveEventStream
@@ -62,14 +63,6 @@ def get_live_stream() -> LiveEventStream:
 
 def get_subreddit_resolver() -> SubredditResolver:
     return HttpSubredditResolver()
-
-
-def get_configure_monitor_service(
-    monitor_repo: MonitorRepository = Depends(get_monitor_repository),
-    comment_repo: CommentRepository = Depends(get_repository),
-    resolver: SubredditResolver = Depends(get_subreddit_resolver),
-) -> ConfigureMonitorService:
-    return ConfigureMonitorService(monitor_repo, comment_repo, resolver)
 
 
 def get_comment_publisher() -> CommentPublisher | None:
