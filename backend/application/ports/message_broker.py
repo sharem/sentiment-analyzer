@@ -1,5 +1,3 @@
-"""MessageBroker — driven port for publish/consume adapters."""
-
 from abc import ABC, abstractmethod
 from collections.abc import Iterator
 
@@ -9,11 +7,16 @@ class BrokerError(Exception):
 
 
 class MessageBroker(ABC):
+    """Port for publish-subscribe message broker (e.g. Redis Pub/Sub)."""
+    
     @abstractmethod
-    def publish(self, topic: str, message: dict) -> None: ...
+    def publish(self, topic: str, message: dict) -> None:
+        pass
 
     @abstractmethod
-    def consume(self, topic: str) -> Iterator[dict]: ...
+    def consume(self, topic: str) -> Iterator[dict]:
+        pass
 
     @abstractmethod
-    def close(self) -> None: ...
+    def close(self) -> None:
+        pass

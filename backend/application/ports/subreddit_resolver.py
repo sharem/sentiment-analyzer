@@ -6,6 +6,8 @@ class SubredditNotFoundError(Exception):
 
 
 class SubredditResolver(ABC):
+    """Port for resolving subreddit names to their canonical display names, or raising SubredditNotFoundError."""
+
     @abstractmethod
     def resolve(self, name: str) -> str:
-        """Return the canonical display name, or raise SubredditNotFoundError."""
+        pass
