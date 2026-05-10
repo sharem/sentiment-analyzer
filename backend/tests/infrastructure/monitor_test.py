@@ -4,7 +4,7 @@ import pytest
 
 from backend.domain.monitor_target import MonitorTarget
 from backend.infrastructure.api.app import app
-from backend.infrastructure.dependencies import get_subreddit_resolver
+from backend.infrastructure.composition import get_subreddit_resolver
 from backend.application.ports.subreddit_resolver import SubredditNotFoundError
 
 

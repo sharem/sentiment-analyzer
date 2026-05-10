@@ -6,7 +6,7 @@ import logging
 from backend.application.ports.message_broker import BrokerError, MessageBroker
 from backend.application.process_comment_service import ProcessCommentService
 from backend.application.raw_comment import RawComment
-from backend.infrastructure.dependencies import get_process_comment_service
+from backend.infrastructure.composition import get_process_comment_service
 from backend.infrastructure.messaging.broker_factory import create_broker
 from backend.infrastructure.messaging.channels import COMMENTS_TOPIC
 

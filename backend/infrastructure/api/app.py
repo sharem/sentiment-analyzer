@@ -27,7 +27,7 @@ from backend.infrastructure.api.responses import (
     SentimentCountsResponse,
 )
 from backend.application.ports.monitor_repository import MonitorRepository
-from backend.infrastructure.dependencies import get_configure_monitor_service, get_live_stream, get_monitor_repository, get_repository
+from backend.infrastructure.fastapi_deps import get_configure_monitor_service, get_live_stream, get_monitor_repository, get_repository
 from backend.infrastructure.messaging.channels import COMMENTS_LIVE_CHANNEL
 
 load_dotenv()

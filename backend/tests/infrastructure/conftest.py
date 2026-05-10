@@ -4,7 +4,7 @@ from fastapi.testclient import TestClient
 
 from backend.domain.monitor_target import MonitorTarget
 from backend.infrastructure.api.app import app
-from backend.infrastructure.dependencies import get_monitor_repository, get_repository
+from backend.infrastructure.composition import get_monitor_repository, get_repository
 
 
 @pytest.fixture
