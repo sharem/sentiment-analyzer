@@ -9,7 +9,7 @@ from collections.abc import Iterator
 from kafka import KafkaConsumer, KafkaProducer
 from kafka.errors import KafkaError
 
-from backend.infrastructure.messaging.message_broker import BrokerError, MessageBroker
+from backend.application.ports.message_broker import BrokerError, MessageBroker
 
 logger = logging.getLogger(__name__)
 
