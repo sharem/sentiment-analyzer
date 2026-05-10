@@ -9,6 +9,7 @@ import praw
 
 from backend.application.ports.message_broker import BrokerError, MessageBroker
 from backend.application.ports.monitor_repository import MonitorRepository
+from backend.application.raw_comment import RawComment
 from backend.domain.monitor_target import MonitorTarget
 from backend.infrastructure.dependencies import get_monitor_repository
 from backend.infrastructure.messaging.broker_factory import create_broker
@@ -55,10 +56,8 @@ def _stream_subreddit(
             )
             return new_target
         try:
-            broker.publish(COMMENTS_TOPIC, {
-                "text": comment.body,
-                "subreddit": current_target.subreddit,
-            })
+            raw = RawComment(text=comment.body, subreddit=current_target.subreddit)
+            broker.publish(COMMENTS_TOPIC, raw.to_dict())
             logger.info(f"Sent comment from r/{current_target.subreddit}: {comment.body[:50]}...")
             time.sleep(1)
         except BrokerError as e:
@@ -100,11 +99,12 @@ def _poll_post(
             for comment in submission.comments.list():
                 if comment.id not in seen:
                     seen.add(comment.id)
-                    broker.publish(COMMENTS_TOPIC, {
-                        "text": comment.body,
-                        "subreddit": current_target.subreddit,
-                        "post_id": current_target.post_id,
-                    })
+                    raw = RawComment(
+                        text=comment.body,
+                        subreddit=current_target.subreddit,
+                        post_id=current_target.post_id,
+                    )
+                    broker.publish(COMMENTS_TOPIC, raw.to_dict())
                     logger.info(f"Sent post comment: {comment.body[:50]}...")
         except BrokerError as e:
             logger.error(f"Failed to publish to broker: {e}")

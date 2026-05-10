@@ -1,9 +1,11 @@
 """Consumer entry point — delegates to ProcessCommentService."""
 
+import json
 import logging
 
 from backend.application.ports.message_broker import BrokerError, MessageBroker
 from backend.application.process_comment_service import ProcessCommentService
+from backend.application.raw_comment import RawComment
 from backend.infrastructure.dependencies import get_process_comment_service
 from backend.infrastructure.messaging.broker_factory import create_broker
 from backend.infrastructure.messaging.channels import COMMENTS_TOPIC
@@ -16,7 +18,12 @@ logger = logging.getLogger(__name__)
 
 
 def process_message(message: dict, service: ProcessCommentService) -> None:
-    service.execute(message)
+    try:
+        raw = RawComment.from_dict(message)
+    except ValueError as e:
+        logger.error(json.dumps({"event": "message_skipped", "reason": str(e)}))
+        return
+    service.execute(raw)
 
 
 def main(

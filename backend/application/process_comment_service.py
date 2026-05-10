@@ -7,6 +7,7 @@ from backend.domain.comment import Comment
 from backend.application.ports.comment_publisher import CommentPublisher
 from backend.application.ports.comment_repository import CommentRepository
 from backend.application.ports.sentiment_analyzer import SentimentAnalyzer
+from backend.application.raw_comment import RawComment
 
 logger = logging.getLogger(__name__)
 
@@ -24,22 +25,16 @@ class ProcessCommentService:
         self._analyzer = analyzer
         self._publisher = publisher
 
-    def execute(self, message: dict) -> None:
+    def execute(self, raw: RawComment) -> None:
         start = time.time()
-        text = message.get("text")
-        if not text:
-            logger.error(json.dumps({"event": "message_skipped", "reason": "missing_text_field"}))
-            return
-
-        subreddit = message.get("subreddit", "unknown")
         try:
-            sentiment, polarity = self._analyzer.analyze(text)
+            sentiment, polarity = self._analyzer.analyze(raw.text)
             comment = Comment(
-                text=text,
+                text=raw.text,
                 sentiment=sentiment,
                 polarity=polarity,
                 timestamp=datetime.now(timezone.utc),
-                subreddit=subreddit,
+                subreddit=raw.subreddit,
             )
             self._repo.add_comment(comment)
             if self._publisher:

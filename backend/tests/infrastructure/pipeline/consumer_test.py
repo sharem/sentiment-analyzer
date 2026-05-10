@@ -1,11 +1,18 @@
+import json
+import logging
+
 from backend.application.ports.message_broker import BrokerError
+from backend.application.raw_comment import RawComment
 from backend.infrastructure.pipeline.consumer import main, process_message
 
 
 class TestMain:
     def test_delegates_each_message_to_service(self, mocker):
         mock_broker = mocker.MagicMock()
-        mock_broker.consume.return_value = iter([{"text": "great"}, {"text": "ok"}])
+        mock_broker.consume.return_value = iter([
+            {"text": "great", "subreddit": "python"},
+            {"text": "ok", "subreddit": "python"},
+        ])
         mock_service = mocker.MagicMock()
 
         main(broker=mock_broker, service=mock_service)
@@ -68,10 +75,44 @@ class TestMain:
 
 
 class TestProcessMessage:
-    def test_delegates_to_service(self, mocker):
+    def test_parses_dict_into_raw_comment_and_delegates(self, mocker):
         mock_service = mocker.MagicMock()
-        message = {"text": "hello"}
+        message = {"text": "hello", "subreddit": "python"}
 
         process_message(message, mock_service)
 
-        mock_service.execute.assert_called_once_with(message)
+        mock_service.execute.assert_called_once_with(
+            RawComment(text="hello", subreddit="python")
+        )
+
+    def test_passes_post_id_through(self, mocker):
+        mock_service = mocker.MagicMock()
+        message = {"text": "hello", "subreddit": "python", "post_id": "abc"}
+
+        process_message(message, mock_service)
+
+        mock_service.execute.assert_called_once_with(
+            RawComment(text="hello", subreddit="python", post_id="abc")
+        )
+
+    def test_skips_when_text_missing(self, mocker, caplog):
+        mock_service = mocker.MagicMock()
+
+        with caplog.at_level(logging.ERROR):
+            process_message({"subreddit": "python"}, mock_service)
+
+        mock_service.execute.assert_not_called()
+        log_data = json.loads(caplog.messages[-1])
+        assert log_data["event"] == "message_skipped"
+        assert log_data["reason"] == "missing_text_field"
+
+    def test_skips_when_subreddit_missing(self, mocker, caplog):
+        mock_service = mocker.MagicMock()
+
+        with caplog.at_level(logging.ERROR):
+            process_message({"text": "hello"}, mock_service)
+
+        mock_service.execute.assert_not_called()
+        log_data = json.loads(caplog.messages[-1])
+        assert log_data["event"] == "message_skipped"
+        assert log_data["reason"] == "missing_subreddit_field"
