@@ -17,7 +17,8 @@ from backend.application.ports.monitor_repository import MonitorRepository
 from backend.application.ports.sentiment_analyzer import SentimentAnalyzer
 from backend.application.ports.subreddit_resolver import SubredditResolver
 from backend.application.process_comment_service import ProcessCommentService
-from backend.infrastructure.messaging.redis_live_stream import RedisLiveStream
+from backend.infrastructure.messaging.redis_comment_publisher import RedisCommentPublisher
+from backend.infrastructure.messaging.redis_live_event_stream import RedisLiveEventStream
 from backend.infrastructure.nlp.textblob_analyzer import TextBlobSentimentAnalyzer
 from backend.infrastructure.reddit.subreddit_resolver import HttpSubredditResolver
 from backend.infrastructure.repositories.redis_monitor_repository import RedisMonitorRepository
@@ -50,15 +51,20 @@ def get_sentiment_analyzer() -> SentimentAnalyzer:
 
 
 @lru_cache(maxsize=1)
-def _get_redis_live_stream() -> RedisLiveStream:
-    return RedisLiveStream(
+def _get_redis_live_event_stream() -> RedisLiveEventStream:
+    return RedisLiveEventStream(
         host=os.getenv("REDIS_HOST", "localhost"),
         port=int(os.getenv("REDIS_PORT", "6379")),
     )
 
 
+@lru_cache(maxsize=1)
+def _get_redis_comment_publisher() -> RedisCommentPublisher:
+    return RedisCommentPublisher(get_redis_client())
+
+
 def get_live_stream() -> LiveEventStream:
-    return _get_redis_live_stream()
+    return _get_redis_live_event_stream()
 
 
 def get_subreddit_resolver() -> SubredditResolver:
@@ -67,7 +73,7 @@ def get_subreddit_resolver() -> SubredditResolver:
 
 def get_comment_publisher() -> CommentPublisher | None:
     try:
-        return _get_redis_live_stream()
+        return _get_redis_comment_publisher()
     except Exception as e:
         logger.warning(f"Redis unavailable, SSE publishing disabled: {e}")
         return None

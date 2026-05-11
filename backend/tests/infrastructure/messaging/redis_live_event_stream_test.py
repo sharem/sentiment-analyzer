@@ -1,32 +1,11 @@
 import asyncio
 import json
-from datetime import datetime
 
 import pytest
 
-from backend.domain.comment import Comment, Sentiment
-from backend.infrastructure.messaging.channels import COMMENTS_LIVE_CHANNEL
-from backend.infrastructure.messaging.redis_live_stream import RedisLiveStream
+from backend.infrastructure.messaging.redis_live_event_stream import RedisLiveEventStream
 
-_SYNC_REDIS = "backend.infrastructure.messaging.redis_live_stream.redis.Redis"
-_ASYNC_REDIS = "backend.infrastructure.messaging.redis_live_stream.aioredis.Redis"
-
-
-@pytest.fixture
-def comment():
-    return Comment(
-        text="great post",
-        sentiment=Sentiment.POSITIVE,
-        polarity=0.8,
-        timestamp=datetime(2024, 1, 1, 12, 0, 0),
-        subreddit="python",
-    )
-
-
-@pytest.fixture
-def stream(mocker):
-    mocker.patch(_SYNC_REDIS, return_value=mocker.MagicMock())
-    return RedisLiveStream(host="localhost", port=6379)
+_ASYNC_REDIS = "backend.infrastructure.messaging.redis_live_event_stream.aioredis.Redis"
 
 
 def _make_async_pubsub(mocker, messages):
@@ -39,42 +18,9 @@ def _make_async_pubsub(mocker, messages):
     return mock_r, mock_pubsub
 
 
-class TestPublish:
-    def test_sends_serialised_comment_to_live_channel(self, mocker, comment):
-        mock_sync = mocker.MagicMock()
-        mocker.patch(_SYNC_REDIS, return_value=mock_sync)
-        s = RedisLiveStream(host="localhost", port=6379)
-
-        s.publish(comment)
-
-        mock_sync.publish.assert_called_once_with(
-            COMMENTS_LIVE_CHANNEL,
-            json.dumps({
-                "text": "great post",
-                "sentiment": "positive",
-                "polarity": 0.8,
-                "timestamp": "2024-01-01T12:00:00",
-                "subreddit": "python",
-            }),
-        )
-
-    def test_serialises_negative_sentiment(self, mocker):
-        mock_sync = mocker.MagicMock()
-        mocker.patch(_SYNC_REDIS, return_value=mock_sync)
-        s = RedisLiveStream(host="localhost", port=6379)
-        negative = Comment(
-            text="awful",
-            sentiment=Sentiment.NEGATIVE,
-            polarity=-0.9,
-            timestamp=datetime(2024, 1, 1, 0, 0, 0),
-            subreddit="news",
-        )
-
-        s.publish(negative)
-
-        payload = json.loads(mock_sync.publish.call_args[0][1])
-        assert payload["sentiment"] == "negative"
-        assert payload["polarity"] == -0.9
+@pytest.fixture
+def stream():
+    return RedisLiveEventStream(host="localhost", port=6379)
 
 
 class TestSubscribe:

@@ -2,7 +2,6 @@
 
 import json
 import logging
-import os
 from collections.abc import Iterator
 
 import redis
@@ -13,14 +12,8 @@ logger = logging.getLogger(__name__)
 
 
 class RedisBroker(MessageBroker):
-    def __init__(
-        self,
-        host: str | None = None,
-        port: int | None = None,
-    ) -> None:
-        _host = host or os.getenv("REDIS_HOST", "localhost")
-        _port = port or int(os.getenv("REDIS_PORT", "6379"))
-        self._redis = redis.Redis(host=_host, port=_port)
+    def __init__(self, client: redis.Redis) -> None:
+        self._redis = client
 
     def publish(self, topic: str, message: dict) -> None:
         try:
