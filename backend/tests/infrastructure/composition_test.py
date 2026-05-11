@@ -27,12 +27,14 @@ def _clear_dep_caches():
     c.get_repository.cache_clear()
     c.get_redis_client.cache_clear()
     c.get_sentiment_analyzer.cache_clear()
-    c._get_redis_live_stream.cache_clear()
+    c._get_redis_live_event_stream.cache_clear()
+    c._get_redis_comment_publisher.cache_clear()
     yield
     c.get_repository.cache_clear()
     c.get_redis_client.cache_clear()
     c.get_sentiment_analyzer.cache_clear()
-    c._get_redis_live_stream.cache_clear()
+    c._get_redis_live_event_stream.cache_clear()
+    c._get_redis_comment_publisher.cache_clear()
 
 
 class TestGetRepository:
@@ -119,7 +121,7 @@ class TestGetCommentPublisher:
 
     def test_returns_none_and_warns_when_redis_unavailable(self, mocker, caplog):
         mocker.patch(
-            f"{COMP}._get_redis_live_stream",
+            f"{COMP}._get_redis_comment_publisher",
             side_effect=RuntimeError("redis down"),
         )
         from backend.infrastructure import composition as c
