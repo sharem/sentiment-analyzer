@@ -3,6 +3,7 @@
 import json
 import logging
 import os
+from pathlib import Path
 from typing import Any
 
 from dotenv import load_dotenv
@@ -30,7 +31,7 @@ from backend.application.ports.monitor_repository import MonitorRepository
 from backend.infrastructure.fastapi_deps import get_configure_monitor_use_case, get_live_stream, get_monitor_repository, get_repository
 from backend.infrastructure.messaging.redis_comment_publisher import COMMENTS_LIVE_CHANNEL
 
-load_dotenv()
+load_dotenv(Path(__file__).resolve().parents[2] / ".env")
 
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)

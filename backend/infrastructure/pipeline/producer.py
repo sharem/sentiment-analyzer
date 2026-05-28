@@ -4,6 +4,7 @@ import logging
 import os
 import time
 from collections import deque
+from pathlib import Path
 
 from dotenv import load_dotenv
 import praw
@@ -16,7 +17,7 @@ from backend.infrastructure.composition import get_monitor_repository
 from backend.infrastructure.messaging.broker_factory import create_broker
 from backend.infrastructure.pipeline.topics import COMMENTS_TOPIC
 
-load_dotenv()
+load_dotenv(Path(__file__).resolve().parents[2] / ".env")
 
 logging.basicConfig(
     level=logging.INFO, format="%(asctime)s - %(levelname)s - %(message)s"
