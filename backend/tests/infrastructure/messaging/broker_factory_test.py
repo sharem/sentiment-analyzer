@@ -4,17 +4,17 @@ import pytest
 
 from backend.infrastructure.messaging.broker_factory import create_broker
 from backend.infrastructure.messaging.kafka_broker import KafkaBroker
-from backend.infrastructure.messaging.redis_broker import RedisBroker
+from backend.infrastructure.messaging.redis_stream_broker import RedisStreamBroker
 
 
 FACTORY = "backend.infrastructure.messaging.broker_factory"
 KAFKA_BROKER_PATCH = f"{FACTORY}.KafkaBroker"
-REDIS_BROKER_PATCH = f"{FACTORY}.RedisBroker"
+REDIS_BROKER_PATCH = f"{FACTORY}.RedisStreamBroker"
 REDIS_CLIENT_PATCH = f"{FACTORY}.redis.Redis"
 
 
 class TestCreateBroker:
-    def test_returns_redis_broker_by_default(self, mocker):
+    def test_returns_redis_stream_broker_by_default(self, mocker):
         mocker.patch(REDIS_CLIENT_PATCH)
         mock_redis = mocker.patch(REDIS_BROKER_PATCH)
         mocker.patch.dict(os.environ, {"BROKER": "redis"})
@@ -24,7 +24,7 @@ class TestCreateBroker:
         mock_redis.assert_called_once()
         assert result is mock_redis.return_value
 
-    def test_returns_redis_broker_when_env_is_redis(self, mocker):
+    def test_returns_redis_stream_broker_when_env_is_redis(self, mocker):
         mocker.patch(REDIS_CLIENT_PATCH)
         mock_redis = mocker.patch(REDIS_BROKER_PATCH)
         mocker.patch.dict(os.environ, {"BROKER": "redis"})

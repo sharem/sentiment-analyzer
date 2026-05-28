@@ -7,15 +7,15 @@ A real-time sentiment analysis pipeline that streams Reddit comments through a m
 ## Architecture
 
 ```
-Reddit API → Producer → [reddit-comments topic] → Consumer → SQLite
-                MessageBroker (Kafka or Redis)        ↓
-                                            ProcessCommentService
-                                                      ↓
-                                            RedisLiveStream.publish()
-                                                      ↓
-                                            [comments:live channel]
-                                                      ↓
-                                            FastAPI /api/stream → Browser (SSE)
+Reddit API → Producer → [reddit-comments stream] → Consumer → SQLite
+              MessageBroker (Redis Streams or Kafka)      ↓
+              persisted log · consumer groups · XACK   AnalyseCommentUseCase
+                                                          ↓
+                                                  RedisCommentPublisher
+                                                          ↓
+                                                  [comments:live Pub/Sub channel]
+                                                          ↓
+                                                  FastAPI /api/stream → Browser (SSE)
 ```
 
 The backend follows **Hexagonal Architecture (Ports & Adapters)** with strict dependency direction: domain → application → infrastructure.
@@ -26,7 +26,16 @@ The backend follows **Hexagonal Architecture (Ports & Adapters)** with strict de
 
 Swapping SQLite → PostgreSQL, Kafka → Redis, or TextBlob → another NLP library requires changing only the adapter, not the business logic.
 
-> **Note:** Kafka is intentionally overengineered for this scale. Redis Pub/Sub is the default; Kafka is included for exploration.
+### Transport choice: Redis Streams vs Pub/Sub
+
+This project deliberately uses **two different Redis transports** for two different jobs.
+
+| Path | Transport | Why |
+|---|---|---|
+| Producer → Consumer (`reddit-comments`) | **Redis Streams** (XADD / XREADGROUP / XACK) | Persisted log + consumer groups + at-least-once delivery. A restarting or slow consumer doesn't lose comments — they sit in the pending entries list until acknowledged. `MAXLEN ~ 10000` keeps memory bounded. Same semantics as Kafka, which is why the two broker adapters stay symmetric. |
+| Consumer → Browser (`comments:live`) | **Redis Pub/Sub** | Fire-and-forget fan-out to SSE clients. Each browser is a short-lived subscriber that doesn't care about history — if it misses a message because it's mid-reconnect, that's acceptable. Pub/Sub keeps the SSE path cheap and trivial. |
+
+Kafka remains available as a drop-in replacement for the pipeline transport (`BROKER=kafka`) — included for exploration, not because the scale requires it.
 
 ## Project Structure
 
@@ -45,26 +54,27 @@ sentiment-analyzer/
 │   │   │   ├── sentiment_analyzer.py    # Port: classify text → (Sentiment, polarity)
 │   │   │   ├── live_stream.py           # Port: subscribe to the SSE event stream
 │   │   │   └── subreddit_resolver.py    # Port: resolve a subreddit name + SubredditNotFoundError
-│   │   ├── raw_comment.py               # DTO: inbound wire shape shared by producer/consumer
-│   │   ├── process_comment_service.py   # Use case: analyse a RawComment and persist it
-│   │   └── configure_monitor_service.py # Use case: validate and switch the monitor target
+│   │   ├── raw_comment.py                  # DTO: inbound wire shape shared by producer/consumer
+│   │   ├── analyse_comment_use_case.py     # Use case: analyse a RawComment and persist it
+│   │   └── configure_monitor_use_case.py   # Use case: validate and switch the monitor target
 │   ├── infrastructure/
 │   │   ├── api/
-│   │   │   ├── app.py                   # FastAPI adapter — routes and middleware
-│   │   │   ├── requests.py              # Pydantic request models
-│   │   │   ├── responses.py             # Pydantic response models
-│   │   │   └── exception_handlers.py    # Centralised HTTP exception handlers
+│   │   │   ├── app.py                      # FastAPI adapter — routes and middleware
+│   │   │   ├── requests.py                 # Pydantic request models
+│   │   │   ├── responses.py                # Pydantic response models
+│   │   │   └── exception_handlers.py       # Centralised HTTP exception handlers
 │   │   ├── messaging/
-│   │   │   ├── channels.py              # Shared topic/channel name constants
-│   │   │   ├── broker_factory.py        # Instantiates broker from BROKER env var
-│   │   │   ├── kafka_broker.py          # Kafka adapter
-│   │   │   ├── redis_broker.py          # Redis Pub/Sub adapter (pipeline transport)
-│   │   │   └── redis_live_stream.py     # Adapter: CommentPublisher + LiveEventStream over Redis
+│   │   │   ├── broker_factory.py           # Instantiates pipeline broker from BROKER env var
+│   │   │   ├── kafka_broker.py             # Kafka adapter (alternative pipeline transport)
+│   │   │   ├── redis_stream_broker.py      # Redis Streams adapter (default pipeline transport)
+│   │   │   ├── redis_comment_publisher.py  # Pub/Sub: writes processed comments to comments:live
+│   │   │   └── redis_live_event_stream.py  # Pub/Sub: async subscribe for SSE clients
 │   │   ├── nlp/
-│   │   │   └── textblob_analyzer.py     # Adapter: TextBlobSentimentAnalyzer
+│   │   │   └── textblob_analyzer.py        # Adapter: TextBlobSentimentAnalyzer
 │   │   ├── pipeline/
-│   │   │   ├── producer.py              # Reddit → broker (thin adapter)
-│   │   │   └── consumer.py              # Broker → ProcessCommentService (thin adapter)
+│   │   │   ├── producer.py                 # Reddit → broker (thin adapter)
+│   │   │   ├── consumer.py                 # Broker → AnalyseCommentUseCase (thin adapter)
+│   │   │   └── topics.py                   # Shared topic name for producer/consumer
 │   │   ├── reddit/
 │   │   │   └── subreddit_resolver.py    # Adapter: HttpSubredditResolver
 │   │   ├── repositories/
