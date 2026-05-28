@@ -45,6 +45,21 @@ class SQLiteCommentRepository(CommentRepository):
                 "CREATE INDEX IF NOT EXISTS "
                 "idx_created_at ON comments(created_at)"
             )
+            # Cap row count at max_comments via AFTER INSERT trigger so the
+            # write path stays a single INSERT and trimming happens in-engine.
+            conn.execute(f"""
+                CREATE TRIGGER IF NOT EXISTS trim_comments_after_insert
+                AFTER INSERT ON comments
+                BEGIN
+                    DELETE FROM comments
+                    WHERE id IN (
+                        SELECT id FROM comments
+                        ORDER BY created_at DESC, id DESC
+                        LIMIT -1 OFFSET {int(self._max_comments)}
+                    );
+                END
+            """)
+
     def add_comment(self, comment: Comment) -> None:
         with self._get_connection() as conn:
             conn.execute(
@@ -59,14 +74,6 @@ class SQLiteCommentRepository(CommentRepository):
                     comment.subreddit,
                 ),
             )
-            conn.execute("""
-                DELETE FROM comments
-                WHERE id NOT IN (
-                    SELECT id FROM comments
-                    ORDER BY created_at DESC, id DESC
-                    LIMIT ?
-                )
-            """, (self._max_comments,))
 
     def get_recent_comments(self, limit: int | None = None) -> list[Comment]:
         with self._get_connection() as conn:
