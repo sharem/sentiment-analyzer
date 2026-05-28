@@ -12,7 +12,7 @@ from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import StreamingResponse
 from starlette.exceptions import HTTPException as StarletteHTTPException
 
-from backend.application.configure_monitor_service import ConfigureMonitorService
+from backend.application.configure_monitor_use_case import ConfigureMonitorUseCase
 from backend.application.ports.comment_repository import CommentRepository
 from backend.application.ports.live_stream import LiveEventStream
 from backend.application.ports.subreddit_resolver import SubredditNotFoundError
@@ -27,8 +27,8 @@ from backend.infrastructure.api.responses import (
     SentimentCountsResponse,
 )
 from backend.application.ports.monitor_repository import MonitorRepository
-from backend.infrastructure.fastapi_deps import get_configure_monitor_service, get_live_stream, get_monitor_repository, get_repository
-from backend.infrastructure.messaging.channels import COMMENTS_LIVE_CHANNEL
+from backend.infrastructure.fastapi_deps import get_configure_monitor_use_case, get_live_stream, get_monitor_repository, get_repository
+from backend.infrastructure.messaging.redis_comment_publisher import COMMENTS_LIVE_CHANNEL
 
 load_dotenv()
 
@@ -72,10 +72,10 @@ def get_monitor(monitor_repo: MonitorRepository = Depends(get_monitor_repository
 @app.post("/api/monitor", response_model=MonitorConfigResponse)
 def set_monitor(
     body: MonitorConfigRequest,
-    service: ConfigureMonitorService = Depends(get_configure_monitor_service),
+    use_case: ConfigureMonitorUseCase = Depends(get_configure_monitor_use_case),
 ) -> MonitorConfigResponse:
     try:
-        target = service.execute(body.subreddit, body.post_id)
+        target = use_case.execute(body.subreddit, body.post_id)
     except SubredditNotFoundError as e:
         raise HTTPException(status_code=400, detail=str(e))
     return MonitorConfigResponse(subreddit=target.subreddit, post_id=target.post_id)

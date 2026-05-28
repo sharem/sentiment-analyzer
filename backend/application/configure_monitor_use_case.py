@@ -8,7 +8,7 @@ from backend.domain.monitor_target import MonitorTarget
 logger = logging.getLogger(__name__)
 
 
-class ConfigureMonitorService:
+class ConfigureMonitorUseCase:
     def __init__(
         self,
         monitor_repo: MonitorRepository,

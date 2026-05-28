@@ -13,7 +13,7 @@ from backend.application.raw_comment import RawComment
 from backend.domain.monitor_target import MonitorTarget
 from backend.infrastructure.composition import get_monitor_repository
 from backend.infrastructure.messaging.broker_factory import create_broker
-from backend.infrastructure.messaging.channels import COMMENTS_TOPIC
+from backend.infrastructure.pipeline.topics import COMMENTS_TOPIC
 
 load_dotenv()
 
