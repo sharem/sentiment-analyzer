@@ -2,6 +2,8 @@
 
 import logging
 import os
+import signal
+import threading
 import time
 from collections import deque
 from pathlib import Path
@@ -23,6 +25,15 @@ logging.basicConfig(
     level=logging.INFO, format="%(asctime)s - %(levelname)s - %(message)s"
 )
 logger = logging.getLogger(__name__)
+
+# Module-level shutdown signal so the loops can exit promptly on SIGINT/SIGTERM
+# instead of after the next poll interval.
+_shutdown_event = threading.Event()
+
+
+def _wait(seconds: float) -> None:
+    """Sleep up to ``seconds`` or until shutdown is requested, whichever comes first."""
+    _shutdown_event.wait(seconds)
 
 
 def get_required_env(key: str) -> str:
@@ -68,6 +79,8 @@ def _stream_subreddit(
     subreddit = reddit.subreddit(current_target.subreddit)
     backoff = _BrokerBackoff()
     for comment in subreddit.stream.comments(skip_existing=True):
+        if _shutdown_event.is_set():
+            return current_target
         new_target = monitor_repo.get()
         if new_target != current_target:
             logger.info(
@@ -84,20 +97,22 @@ def _stream_subreddit(
         except BrokerError as e:
             wait = backoff.next_wait()
             logger.error(f"Broker publish failed; backing off {wait:.1f}s: {e}")
-            time.sleep(wait)
+            _wait(wait)
         except Exception as e:
             logger.error(f"Error processing comment: {e}")
     return current_target
 
 
 def _wait_for_target(monitor_repo: MonitorRepository) -> MonitorTarget:
-    """Block until a monitor target is configured."""
+    """Block until a monitor target is configured or shutdown is requested."""
     while True:
+        if _shutdown_event.is_set():
+            return MonitorTarget()
         target = monitor_repo.get()
         if target.subreddit is not None:
             return target
         logger.info("No monitor target set — waiting for configuration...")
-        time.sleep(5)
+        _wait(5)
 
 
 def _poll_post(
@@ -111,6 +126,8 @@ def _poll_post(
     seen: deque[str] = deque(maxlen=10_000)
     backoff = _BrokerBackoff()
     while True:
+        if _shutdown_event.is_set():
+            return current_target
         new_target = monitor_repo.get()
         if new_target != current_target:
             logger.info(
@@ -135,10 +152,10 @@ def _poll_post(
         except BrokerError as e:
             wait = backoff.next_wait()
             logger.error(f"Broker publish failed; backing off {wait:.1f}s: {e}")
-            time.sleep(wait)
+            _wait(wait)
         except Exception as e:
             logger.error(f"Error polling post: {e}")
-        time.sleep(10)
+        _wait(10)
 
 
 def main(broker: MessageBroker | None = None, monitor_repo: MonitorRepository | None = None) -> None:
@@ -158,6 +175,8 @@ def main(broker: MessageBroker | None = None, monitor_repo: MonitorRepository | 
             + (f" post={current_target.post_id}" if current_target.post_id else "")
         )
         while True:
+            if _shutdown_event.is_set():
+                break
             if current_target.subreddit is None:
                 current_target = _wait_for_target(monitor_repo)
             elif current_target.post_id:
@@ -177,5 +196,15 @@ def main(broker: MessageBroker | None = None, monitor_repo: MonitorRepository | 
         logger.info("Producer shutdown complete")
 
 
+def _install_shutdown_handlers() -> None:
+    def _request_shutdown(signum, _frame):
+        logger.info(f"Received signal {signum}, requesting graceful shutdown...")
+        _shutdown_event.set()
+
+    signal.signal(signal.SIGINT, _request_shutdown)
+    signal.signal(signal.SIGTERM, _request_shutdown)
+
+
 if __name__ == "__main__":
+    _install_shutdown_handlers()
     main()
