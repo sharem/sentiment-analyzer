@@ -1,11 +1,18 @@
 import os
+import signal
 from unittest.mock import MagicMock
 
 import pytest
 
 from backend.domain.monitor_target import MonitorTarget
 from backend.application.ports.message_broker import BrokerError
-from backend.infrastructure.pipeline.producer import create_reddit_client, main
+from backend.infrastructure.pipeline import producer
+from backend.infrastructure.pipeline.producer import (
+    _BrokerBackoff,
+    _install_shutdown_handlers,
+    create_reddit_client,
+    main,
+)
 
 _CREATE_CLIENT = "backend.infrastructure.pipeline.producer.create_reddit_client"
 
@@ -15,6 +22,63 @@ def _make_comment(body: str, comment_id: str = "c1"):
     c.body = body
     c.id = comment_id
     return c
+
+
+class TestShutdownEvent:
+    def test_main_exits_when_shutdown_event_set_before_start(self, mocker):
+        mocker.patch(_CREATE_CLIENT, return_value=MagicMock())
+        broker = MagicMock()
+        monitor_repo = MagicMock()
+        monitor_repo.get.return_value = MonitorTarget(subreddit="python")
+        producer._shutdown_event.set()
+
+        main(broker=broker, monitor_repo=monitor_repo)
+
+        broker.close.assert_called_once()
+        broker.publish.assert_not_called()
+
+    def test_install_handlers_registers_sigint_and_sigterm(self, mocker):
+        prev_sigint = signal.getsignal(signal.SIGINT)
+        prev_sigterm = signal.getsignal(signal.SIGTERM)
+        try:
+            _install_shutdown_handlers()
+            assert signal.getsignal(signal.SIGINT) is not prev_sigint
+            assert signal.getsignal(signal.SIGTERM) is not prev_sigterm
+        finally:
+            signal.signal(signal.SIGINT, prev_sigint)
+            signal.signal(signal.SIGTERM, prev_sigterm)
+
+    def test_handler_sets_shutdown_event(self):
+        prev_sigint = signal.getsignal(signal.SIGINT)
+        try:
+            _install_shutdown_handlers()
+            signal.getsignal(signal.SIGINT)(signal.SIGINT, None)
+            assert producer._shutdown_event.is_set()
+        finally:
+            signal.signal(signal.SIGINT, prev_sigint)
+
+
+class TestBrokerBackoff:
+    def test_initial_wait_is_the_initial_value(self):
+        backoff = _BrokerBackoff(initial=1.0, cap=30.0)
+
+        assert backoff.next_wait() == 1.0
+
+    def test_doubles_each_call_up_to_cap(self):
+        backoff = _BrokerBackoff(initial=1.0, cap=8.0)
+
+        waits = [backoff.next_wait() for _ in range(6)]
+
+        assert waits == [1.0, 2.0, 4.0, 8.0, 8.0, 8.0]
+
+    def test_reset_returns_to_initial(self):
+        backoff = _BrokerBackoff(initial=1.0, cap=30.0)
+        backoff.next_wait()
+        backoff.next_wait()
+
+        backoff.reset()
+
+        assert backoff.next_wait() == 1.0
 
 
 class TestCreateRedditClient:

@@ -3,6 +3,7 @@
 import json
 import logging
 import os
+from pathlib import Path
 from typing import Any
 
 from dotenv import load_dotenv
@@ -27,10 +28,11 @@ from backend.infrastructure.api.responses import (
     SentimentCountsResponse,
 )
 from backend.application.ports.monitor_repository import MonitorRepository
+from backend.infrastructure.composition import get_redis_client
 from backend.infrastructure.fastapi_deps import get_configure_monitor_use_case, get_live_stream, get_monitor_repository, get_repository
 from backend.infrastructure.messaging.redis_comment_publisher import COMMENTS_LIVE_CHANNEL
 
-load_dotenv()
+load_dotenv(Path(__file__).resolve().parents[2] / ".env")
 
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
@@ -113,13 +115,24 @@ def comments(
 
 
 @app.get("/health", response_model=HealthResponse)
-def health(repo: CommentRepository = Depends(get_repository)) -> HealthResponse:
+def health(
+    repo: CommentRepository = Depends(get_repository),
+    redis_client=Depends(get_redis_client),
+) -> HealthResponse:
+    failures: list[str] = []
     try:
         repo.get_sentiment_counts()
-        return HealthResponse(status="healthy")
     except Exception as e:
-        logger.exception("Health check failed: %s", str(e))
-        raise HealthCheckError(str(e))
+        failures.append(f"sqlite: {e}")
+    try:
+        redis_client.ping()
+    except Exception as e:
+        failures.append(f"redis: {e}")
+    if failures:
+        reason = "; ".join(failures)
+        logger.exception("Health check failed: %s", reason)
+        raise HealthCheckError(reason)
+    return HealthResponse(status="healthy")
 
 
 if __name__ == "__main__":
