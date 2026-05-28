@@ -31,6 +31,23 @@ def get_required_env(key: str) -> str:
     return value
 
 
+class _BrokerBackoff:
+    """Exponential backoff for transient broker failures: 1s → 2s → 4s ... capped at 30s."""
+
+    def __init__(self, initial: float = 1.0, cap: float = 30.0) -> None:
+        self._initial = initial
+        self._cap = cap
+        self._current = initial
+
+    def next_wait(self) -> float:
+        wait = self._current
+        self._current = min(self._current * 2, self._cap)
+        return wait
+
+    def reset(self) -> None:
+        self._current = self._initial
+
+
 def create_reddit_client():
     reddit = praw.Reddit(
         client_id=get_required_env("REDDIT_CLIENT_ID"),
@@ -48,6 +65,7 @@ def _stream_subreddit(
     """Stream new comments from a subreddit until the monitor config changes."""
     logger.info(f"Streaming comments from r/{current_target.subreddit}...")
     subreddit = reddit.subreddit(current_target.subreddit)
+    backoff = _BrokerBackoff()
     for comment in subreddit.stream.comments(skip_existing=True):
         new_target = monitor_repo.get()
         if new_target != current_target:
@@ -59,10 +77,13 @@ def _stream_subreddit(
         try:
             raw = RawComment(text=comment.body, subreddit=current_target.subreddit)
             broker.publish(COMMENTS_TOPIC, raw.to_dict())
+            backoff.reset()
             logger.info(f"Sent comment from r/{current_target.subreddit}: {comment.body[:50]}...")
             time.sleep(1)
         except BrokerError as e:
-            logger.error(f"Failed to publish to broker: {e}")
+            wait = backoff.next_wait()
+            logger.error(f"Broker publish failed; backing off {wait:.1f}s: {e}")
+            time.sleep(wait)
         except Exception as e:
             logger.error(f"Error processing comment: {e}")
     return current_target
@@ -87,6 +108,7 @@ def _poll_post(
     )
     # Bounded FIFO so a long-running poll on a busy post can't grow unbounded.
     seen: deque[str] = deque(maxlen=10_000)
+    backoff = _BrokerBackoff()
     while True:
         new_target = monitor_repo.get()
         if new_target != current_target:
@@ -108,8 +130,11 @@ def _poll_post(
                     )
                     broker.publish(COMMENTS_TOPIC, raw.to_dict())
                     logger.info(f"Sent post comment: {comment.body[:50]}...")
+            backoff.reset()
         except BrokerError as e:
-            logger.error(f"Failed to publish to broker: {e}")
+            wait = backoff.next_wait()
+            logger.error(f"Broker publish failed; backing off {wait:.1f}s: {e}")
+            time.sleep(wait)
         except Exception as e:
             logger.error(f"Error polling post: {e}")
         time.sleep(10)
