@@ -3,6 +3,7 @@
 import logging
 import os
 import time
+from collections import deque
 
 from dotenv import load_dotenv
 import praw
@@ -84,7 +85,8 @@ def _poll_post(
     logger.info(
         f"Polling post {current_target.post_id} in r/{current_target.subreddit}..."
     )
-    seen: set[str] = set()
+    # Bounded FIFO so a long-running poll on a busy post can't grow unbounded.
+    seen: deque[str] = deque(maxlen=10_000)
     while True:
         new_target = monitor_repo.get()
         if new_target != current_target:
@@ -98,7 +100,7 @@ def _poll_post(
             submission.comments.replace_more(limit=0)
             for comment in submission.comments.list():
                 if comment.id not in seen:
-                    seen.add(comment.id)
+                    seen.append(comment.id)
                     raw = RawComment(
                         text=comment.body,
                         subreddit=current_target.subreddit,
