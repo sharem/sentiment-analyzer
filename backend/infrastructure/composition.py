@@ -16,7 +16,7 @@ from backend.application.ports.live_stream import LiveEventStream
 from backend.application.ports.monitor_repository import MonitorRepository
 from backend.application.ports.sentiment_analyzer import SentimentAnalyzer
 from backend.application.ports.subreddit_resolver import SubredditResolver
-from backend.application.process_comment_service import ProcessCommentService
+from backend.application.analyse_comment_use_case import AnalyseCommentUseCase
 from backend.infrastructure.messaging.redis_comment_publisher import RedisCommentPublisher
 from backend.infrastructure.messaging.redis_live_event_stream import RedisLiveEventStream
 from backend.infrastructure.nlp.textblob_analyzer import TextBlobSentimentAnalyzer
@@ -79,8 +79,8 @@ def get_comment_publisher() -> CommentPublisher | None:
         return None
 
 
-def get_process_comment_service() -> ProcessCommentService:
-    return ProcessCommentService(
+def get_analyse_comment_use_case() -> AnalyseCommentUseCase:
+    return AnalyseCommentUseCase(
         repo=get_repository(),
         analyzer=get_sentiment_analyzer(),
         publisher=get_comment_publisher(),

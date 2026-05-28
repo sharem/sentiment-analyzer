@@ -1,14 +1,14 @@
-"""Consumer entry point — delegates to ProcessCommentService."""
+"""Consumer entry point — delegates to AnalyseCommentUseCase."""
 
 import json
 import logging
 
+from backend.application.analyse_comment_use_case import AnalyseCommentUseCase
 from backend.application.ports.message_broker import BrokerError, MessageBroker
-from backend.application.process_comment_service import ProcessCommentService
 from backend.application.raw_comment import RawComment
-from backend.infrastructure.composition import get_process_comment_service
+from backend.infrastructure.composition import get_analyse_comment_use_case
 from backend.infrastructure.messaging.broker_factory import create_broker
-from backend.infrastructure.messaging.channels import COMMENTS_TOPIC
+from backend.infrastructure.pipeline.topics import COMMENTS_TOPIC
 
 logging.basicConfig(
     level=logging.INFO,
@@ -17,29 +17,29 @@ logging.basicConfig(
 logger = logging.getLogger(__name__)
 
 
-def process_message(message: dict, service: ProcessCommentService) -> None:
+def process_message(message: dict, use_case: AnalyseCommentUseCase) -> None:
     try:
         raw = RawComment.from_dict(message)
     except ValueError as e:
         logger.error(json.dumps({"event": "message_skipped", "reason": str(e)}))
         return
-    service.execute(raw)
+    use_case.execute(raw)
 
 
 def main(
     broker: MessageBroker | None = None,
-    service: ProcessCommentService | None = None,
+    use_case: AnalyseCommentUseCase | None = None,
 ) -> None:
     """Main consumer loop."""
     broker = broker or create_broker()
-    service = service or get_process_comment_service()
+    use_case = use_case or get_analyse_comment_use_case()
 
     logger.info("Starting sentiment analysis consumer...")
     logger.info(f"Processing messages from topic '{COMMENTS_TOPIC}'")
 
     try:
         for message in broker.consume(COMMENTS_TOPIC):
-            process_message(message, service)
+            process_message(message, use_case)
     except KeyboardInterrupt:
         logger.info("Shutdown requested... exiting gracefully")
     except BrokerError as e:

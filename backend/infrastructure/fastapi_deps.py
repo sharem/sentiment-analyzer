@@ -8,7 +8,7 @@ overrides match the same callable used by ``Depends``.
 
 from fastapi import Depends
 
-from backend.application.configure_monitor_service import ConfigureMonitorService
+from backend.application.configure_monitor_use_case import ConfigureMonitorUseCase
 from backend.application.ports.comment_repository import CommentRepository
 from backend.application.ports.monitor_repository import MonitorRepository
 from backend.application.ports.subreddit_resolver import SubredditResolver
@@ -20,7 +20,7 @@ from backend.infrastructure.composition import (
 )
 
 __all__ = [
-    "get_configure_monitor_service",
+    "get_configure_monitor_use_case",
     "get_live_stream",
     "get_monitor_repository",
     "get_repository",
@@ -28,9 +28,9 @@ __all__ = [
 ]
 
 
-def get_configure_monitor_service(
+def get_configure_monitor_use_case(
     monitor_repo: MonitorRepository = Depends(get_monitor_repository),
     comment_repo: CommentRepository = Depends(get_repository),
     resolver: SubredditResolver = Depends(get_subreddit_resolver),
-) -> ConfigureMonitorService:
-    return ConfigureMonitorService(monitor_repo, comment_repo, resolver)
+) -> ConfigureMonitorUseCase:
+    return ConfigureMonitorUseCase(monitor_repo, comment_repo, resolver)

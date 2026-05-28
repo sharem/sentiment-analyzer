@@ -4,8 +4,10 @@ from datetime import datetime
 import pytest
 
 from backend.domain.comment import Comment, Sentiment
-from backend.infrastructure.messaging.channels import COMMENTS_LIVE_CHANNEL
-from backend.infrastructure.messaging.redis_comment_publisher import RedisCommentPublisher
+from backend.infrastructure.messaging.redis_comment_publisher import (
+    COMMENTS_LIVE_CHANNEL,
+    RedisCommentPublisher,
+)
 
 
 @pytest.fixture

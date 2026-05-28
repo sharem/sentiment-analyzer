@@ -14,7 +14,7 @@ from backend.application.ports.comment_repository import CommentRepository
 from backend.application.ports.monitor_repository import MonitorRepository
 from backend.application.ports.sentiment_analyzer import SentimentAnalyzer
 from backend.application.ports.subreddit_resolver import SubredditResolver
-from backend.application.process_comment_service import ProcessCommentService
+from backend.application.analyse_comment_use_case import AnalyseCommentUseCase
 
 # Module under test — imported lazily inside tests so we can clear lru_caches.
 COMP = "backend.infrastructure.composition"
@@ -133,12 +133,12 @@ class TestGetCommentPublisher:
         assert any("Redis unavailable" in m for m in caplog.messages)
 
 
-class TestGetProcessCommentService:
+class TestGetAnalyseCommentUseCase:
     def test_wires_all_dependencies(self, mocker, tmp_path):
         mocker.patch(f"{COMP}.redis.Redis")
         mocker.patch.dict(os.environ, {"SENTIMENT_DB_PATH": str(tmp_path / "x.db")})
         from backend.infrastructure import composition as c
 
-        service = c.get_process_comment_service()
+        use_case = c.get_analyse_comment_use_case()
 
-        assert isinstance(service, ProcessCommentService)
+        assert isinstance(use_case, AnalyseCommentUseCase)

@@ -4,7 +4,8 @@ import redis
 
 from backend.application.ports.comment_publisher import CommentPublisher
 from backend.domain.comment import Comment
-from backend.infrastructure.messaging.channels import COMMENTS_LIVE_CHANNEL
+
+COMMENTS_LIVE_CHANNEL = "comments:live"
 
 
 class RedisCommentPublisher(CommentPublisher):

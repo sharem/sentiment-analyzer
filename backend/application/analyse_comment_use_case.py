@@ -12,8 +12,8 @@ from backend.application.raw_comment import RawComment
 logger = logging.getLogger(__name__)
 
 
-class ProcessCommentService:
-    """Application service: analyse one message and persist the result."""
+class AnalyseCommentUseCase:
+    """Analyse one raw comment and persist the result."""
 
     def __init__(
         self,
