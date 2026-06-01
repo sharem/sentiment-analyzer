@@ -19,6 +19,7 @@ from backend.application.ports.live_stream import LiveEventStream
 from backend.application.ports.subreddit_resolver import SubredditNotFoundError
 from backend.domain.comment import Comment
 from backend.infrastructure.api import exception_handlers
+from backend.infrastructure.api.auth import router as auth_router
 from backend.infrastructure.api.exception_handlers import HealthCheckError
 from backend.infrastructure.api.requests import MonitorConfigRequest
 from backend.infrastructure.api.responses import (
@@ -52,6 +53,8 @@ app.add_exception_handler(HealthCheckError, exception_handlers.health_check_erro
 app.add_exception_handler(StarletteHTTPException, exception_handlers.log_http_exception)
 app.add_exception_handler(RequestValidationError, exception_handlers.log_validation_error)
 app.add_exception_handler(Exception, exception_handlers.handle_exception)
+
+app.include_router(auth_router)
 
 
 @app.middleware("http")
