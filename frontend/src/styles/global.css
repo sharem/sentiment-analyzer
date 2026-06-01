@@ -21,14 +21,21 @@ body {
 }
 
 .dashboard-header {
-  text-align: center;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
   margin-bottom: 20px;
-  padding: 24px 0;
+  padding: 18px 24px;
   background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
   color: white;
   border-radius: 12px;
   box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
   flex-shrink: 0;
+}
+
+.dashboard-header-titles {
+  text-align: left;
 }
 
 .dashboard-main {
@@ -69,14 +76,20 @@ body {
 
 @media (max-width: 640px) {
   .dashboard-header {
+    flex-direction: column;
+    align-items: stretch;
     margin-bottom: 20px;
     padding: 20px;
   }
-  
+
+  .dashboard-header-titles {
+    text-align: center;
+  }
+
   .dashboard-title {
     font-size: 1.75rem;
   }
-  
+
   .dashboard-subtitle {
     font-size: 1rem;
   }
