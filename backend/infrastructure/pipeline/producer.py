@@ -78,7 +78,9 @@ def _stream_subreddit(
     logger.info(f"Streaming comments from r/{current_target.subreddit}...")
     subreddit = reddit.subreddit(current_target.subreddit)
     backoff = _BrokerBackoff()
-    for comment in subreddit.stream.comments(skip_existing=True):
+    # pause_after=5 makes PRAW yield None after 5s of no new comments so we can
+    # check the shutdown event and monitor target even when the subreddit is quiet.
+    for comment in subreddit.stream.comments(skip_existing=True, pause_after=5):
         if _shutdown_event.is_set():
             return current_target
         new_target = monitor_repo.get()
@@ -88,6 +90,8 @@ def _stream_subreddit(
                 + (f" post={new_target.post_id}" if new_target.post_id else "")
             )
             return new_target
+        if comment is None:
+            continue
         try:
             raw = RawComment(text=comment.body, subreddit=current_target.subreddit)
             broker.publish(COMMENTS_TOPIC, raw.to_dict())

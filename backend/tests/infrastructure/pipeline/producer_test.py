@@ -292,6 +292,48 @@ class TestMain:
         called_subreddits = [c.args[0] for c in mock_reddit.subreddit.call_args_list]
         assert "rust" in called_subreddits
 
+    def test_target_change_detected_when_stream_yields_none(self, mocker):
+        # PRAW yields None when no new comments arrive within pause_after seconds.
+        # The target-change check must still run on those None ticks, otherwise
+        # a quiet subreddit blocks the switch indefinitely.
+        mocker.patch("time.sleep")
+        mock_reddit = MagicMock()
+        mocker.patch(_CREATE_CLIENT, return_value=mock_reddit)
+
+        first = MonitorTarget(subreddit="python")
+        second = MonitorTarget(subreddit="rust")
+        monitor_repo = MagicMock()
+        monitor_repo.get.side_effect = [first, second, KeyboardInterrupt]
+        mock_reddit.subreddit.return_value.stream.comments.side_effect = [
+            iter([None]),  # quiet — no comment, just a pause tick
+            iter([_make_comment("hi", "c1")]),  # second subreddit
+        ]
+        broker = MagicMock()
+
+        main(broker=broker, monitor_repo=monitor_repo)
+
+        called_subreddits = [c.args[0] for c in mock_reddit.subreddit.call_args_list]
+        assert "rust" in called_subreddits
+        broker.publish.assert_not_called()  # no comment was ever processed
+
+    def test_stream_call_uses_pause_after(self, mocker):
+        mocker.patch("time.sleep")
+        mock_reddit = MagicMock()
+        mocker.patch(_CREATE_CLIENT, return_value=mock_reddit)
+
+        target = MonitorTarget(subreddit="python")
+        monitor_repo = MagicMock()
+        # First get() returns target (from _wait_for_target); second raises to break out
+        # once the for-loop body runs against the None yield.
+        monitor_repo.get.side_effect = [target, KeyboardInterrupt]
+        mock_reddit.subreddit.return_value.stream.comments.return_value = iter([None])
+        broker = MagicMock()
+
+        main(broker=broker, monitor_repo=monitor_repo)
+
+        stream_call = mock_reddit.subreddit.return_value.stream.comments.call_args
+        assert stream_call.kwargs.get("pause_after") is not None
+
     def test_target_change_to_post_during_subreddit_stream(self, mocker):
         mocker.patch("time.sleep")
         mock_reddit = MagicMock()
