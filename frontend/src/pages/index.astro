@@ -1,4 +1,5 @@
 ---
+import AuthBar from '../components/AuthBar.jsx'
 import Dashboard from '../components/Dashboard.jsx'
 import '../styles/global.css'
 ---
@@ -12,8 +13,11 @@ import '../styles/global.css'
   <body>
     <div class="dashboard-container">
       <header class="dashboard-header">
-        <h1 class="dashboard-title">Sentiment Dashboard</h1>
-        <p class="dashboard-subtitle">Real-time sentiment analysis of Reddit comments</p>
+        <div class="dashboard-header-titles">
+          <h1 class="dashboard-title">Sentiment Dashboard</h1>
+          <p class="dashboard-subtitle">Real-time sentiment analysis of Reddit comments</p>
+        </div>
+        <AuthBar client:load />
       </header>
       <div class="dashboard-main">
         <Dashboard client:load />

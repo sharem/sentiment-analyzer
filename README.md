@@ -44,25 +44,34 @@ sentiment-analyzer/
 ├── backend/
 │   ├── domain/                          # Entities and value objects — zero imports
 │   │   ├── comment.py                   # Comment entity + Sentiment enum
-│   │   └── monitor_target.py            # MonitorTarget value object
+│   │   ├── monitor_target.py            # MonitorTarget value object
+│   │   └── user.py                      # User entity (GitHub-authenticated)
 │   ├── application/
 │   │   ├── ports/                       # Driven ports (ABCs) — no infrastructure imports
 │   │   │   ├── comment_repository.py    # Port: persist and query Comments
 │   │   │   ├── comment_publisher.py     # Port: publish a processed Comment
 │   │   │   ├── message_broker.py        # Port: publish/consume on a transport + BrokerError
 │   │   │   ├── monitor_repository.py    # Port: read/write the active monitor target
+│   │   │   ├── oauth_provider.py        # Port: OAuth identity provider (e.g. GitHub)
 │   │   │   ├── sentiment_analyzer.py    # Port: classify text → (Sentiment, polarity)
+│   │   │   ├── session_store.py         # Port: server-side session storage
 │   │   │   ├── live_stream.py           # Port: subscribe to the SSE event stream
-│   │   │   └── subreddit_resolver.py    # Port: resolve a subreddit name + SubredditNotFoundError
-│   │   ├── raw_comment.py                  # DTO: inbound wire shape shared by producer/consumer
-│   │   ├── analyse_comment_use_case.py     # Use case: analyse a RawComment and persist it
-│   │   └── configure_monitor_use_case.py   # Use case: validate and switch the monitor target
+│   │   │   ├── subreddit_resolver.py    # Port: resolve a subreddit name + SubredditNotFoundError
+│   │   │   └── user_repository.py       # Port: persist authenticated users
+│   │   ├── raw_comment.py                       # DTO: inbound wire shape shared by producer/consumer
+│   │   ├── analyse_comment_use_case.py          # Use case: analyse a RawComment and persist it
+│   │   ├── configure_monitor_use_case.py        # Use case: validate and switch the monitor target
+│   │   └── sign_in_with_oauth_use_case.py       # Use case: exchange OAuth code → User + session
 │   ├── infrastructure/
 │   │   ├── api/
 │   │   │   ├── app.py                      # FastAPI adapter — routes and middleware
+│   │   │   ├── auth.py                     # Auth router: /auth/github/{login,callback}, /auth/me, /auth/logout
 │   │   │   ├── requests.py                 # Pydantic request models
 │   │   │   ├── responses.py                # Pydantic response models
 │   │   │   └── exception_handlers.py       # Centralised HTTP exception handlers
+│   │   ├── auth/
+│   │   │   ├── github_oauth_provider.py    # OAuthProvider adapter: GitHub
+│   │   │   └── redis_session_store.py      # SessionStore adapter: Redis with TTL
 │   │   ├── messaging/
 │   │   │   ├── broker_factory.py           # Instantiates pipeline broker from BROKER env var
 │   │   │   ├── kafka_broker.py             # Kafka adapter (alternative pipeline transport)
@@ -76,12 +85,13 @@ sentiment-analyzer/
 │   │   │   ├── consumer.py                 # Broker → AnalyseCommentUseCase (thin adapter)
 │   │   │   └── topics.py                   # Shared topic name for producer/consumer
 │   │   ├── reddit/
-│   │   │   └── subreddit_resolver.py    # Adapter: HttpSubredditResolver
+│   │   │   └── subreddit_resolver.py       # Adapter: HttpSubredditResolver
 │   │   ├── repositories/
-│   │   │   ├── sqlite_repository.py     # Adapter: SQLiteCommentRepository
-│   │   │   └── redis_monitor_repository.py  # Adapter: RedisMonitorRepository
-│   │   ├── composition.py               # Framework-free composition root (factories used by every entry point)
-│   │   └── fastapi_deps.py              # FastAPI Depends() wrappers around composition
+│   │   │   ├── sqlite_repository.py        # Adapter: SQLiteCommentRepository
+│   │   │   ├── sqlite_user_repository.py   # Adapter: SQLiteUserRepository
+│   │   │   └── redis_monitor_repository.py # Adapter: RedisMonitorRepository
+│   │   ├── composition.py                  # Framework-free composition root (factories used by every entry point)
+│   │   └── fastapi_deps.py                 # FastAPI Depends() wrappers around composition
 │   └── tests/
 │       ├── application/                 # Use case unit tests
 │       └── infrastructure/
@@ -126,11 +136,26 @@ sentiment-analyzer/
    cd frontend && npm install && cd ..
    ```
 
-3. **Configure environment variables** (create `backend/.env`):
+3. **Register a GitHub OAuth app** (for the sign-in feature):
+
+   Go to https://github.com/settings/developers → *New OAuth App*. Use:
+   - *Homepage URL:* `http://localhost:4321`
+   - *Authorization callback URL:* `http://localhost:4321/auth/github/callback`
+
+   Copy the *Client ID* and generate a *Client Secret*.
+
+4. **Configure environment variables** (create `backend/.env`):
    ```bash
    REDDIT_CLIENT_ID=your_client_id
    REDDIT_CLIENT_SECRET=your_client_secret
    REDDIT_USER_AGENT=sentiment-analyzer-bot
+
+   GITHUB_CLIENT_ID=your_github_oauth_client_id
+   GITHUB_CLIENT_SECRET=your_github_oauth_client_secret
+   GITHUB_OAUTH_REDIRECT_URI=http://localhost:4321/auth/github/callback
+   FRONTEND_URL=http://localhost:4321
+   SESSION_TTL_DAYS=7
+
    CORS_ORIGINS=http://localhost:4321
    PORT=5000
    ENV=development
@@ -203,6 +228,11 @@ cd frontend && npm run dev
 | Default subreddit | — | None (user must select on first load) |
 | API port | `PORT` | `5000` |
 | CORS origins | `CORS_ORIGINS` | `http://localhost:4321` |
+| GitHub OAuth client ID | `GITHUB_CLIENT_ID` | — (required for sign-in) |
+| GitHub OAuth client secret | `GITHUB_CLIENT_SECRET` | — (required for sign-in) |
+| GitHub OAuth callback URL | `GITHUB_OAUTH_REDIRECT_URI` | `http://localhost:4321/auth/github/callback` |
+| Frontend home URL (post-login redirect) | `FRONTEND_URL` | `http://localhost:4321` |
+| Session lifetime (days) | `SESSION_TTL_DAYS` | `7` |
 
 ## Monitoring
 

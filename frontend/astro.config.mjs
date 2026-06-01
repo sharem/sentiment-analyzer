@@ -24,6 +24,10 @@ function getConfig() {
             target: backendUrl,
             changeOrigin: true,
           },
+          '/auth': {
+            target: backendUrl,
+            changeOrigin: true,
+          },
         },
       },
     },

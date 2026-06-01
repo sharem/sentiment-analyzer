@@ -1,0 +1,58 @@
+.auth-bar {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  min-height: 36px;
+}
+
+.auth-bar--loading {
+  opacity: 0;
+}
+
+.auth-bar-login,
+.auth-bar-logout {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  padding: 6px 14px;
+  border: none;
+  border-radius: 6px;
+  cursor: pointer;
+  font-size: 0.875rem;
+  font-weight: 500;
+  transition: background-color 0.2s ease;
+}
+
+.auth-bar-login {
+  background-color: #24292f;
+  color: white;
+}
+
+.auth-bar-login:hover {
+  background-color: #1a1f24;
+}
+
+.auth-bar-logout {
+  background-color: transparent;
+  color: #4b5563;
+  border: 1px solid #d1d5db;
+}
+
+.auth-bar-logout:hover {
+  background-color: #f3f4f6;
+}
+
+.auth-bar-icon {
+  flex-shrink: 0;
+}
+
+.auth-bar-avatar {
+  border-radius: 50%;
+  display: block;
+}
+
+.auth-bar-name {
+  font-size: 0.875rem;
+  font-weight: 500;
+  color: #1f2937;
+}
