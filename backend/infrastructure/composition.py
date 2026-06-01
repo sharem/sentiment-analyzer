@@ -14,15 +14,22 @@ from backend.application.ports.comment_publisher import CommentPublisher
 from backend.application.ports.comment_repository import CommentRepository
 from backend.application.ports.live_stream import LiveEventStream
 from backend.application.ports.monitor_repository import MonitorRepository
+from backend.application.ports.oauth_provider import OAuthProvider
 from backend.application.ports.sentiment_analyzer import SentimentAnalyzer
+from backend.application.ports.session_store import SessionStore
 from backend.application.ports.subreddit_resolver import SubredditResolver
+from backend.application.ports.user_repository import UserRepository
 from backend.application.analyse_comment_use_case import AnalyseCommentUseCase
+from backend.application.sign_in_with_oauth_use_case import SignInWithOAuthUseCase
+from backend.infrastructure.auth.github_oauth_provider import GitHubOAuthProvider
+from backend.infrastructure.auth.redis_session_store import RedisSessionStore
 from backend.infrastructure.messaging.redis_comment_publisher import RedisCommentPublisher
 from backend.infrastructure.messaging.redis_live_event_stream import RedisLiveEventStream
 from backend.infrastructure.nlp.textblob_analyzer import TextBlobSentimentAnalyzer
 from backend.infrastructure.reddit.subreddit_resolver import HttpSubredditResolver
 from backend.infrastructure.repositories.redis_monitor_repository import RedisMonitorRepository
 from backend.infrastructure.repositories.sqlite_repository import SQLiteCommentRepository
+from backend.infrastructure.repositories.sqlite_user_repository import SQLiteUserRepository
 
 logger = logging.getLogger(__name__)
 
@@ -84,4 +91,35 @@ def get_analyse_comment_use_case() -> AnalyseCommentUseCase:
         repo=get_repository(),
         analyzer=get_sentiment_analyzer(),
         publisher=get_comment_publisher(),
+    )
+
+
+@lru_cache(maxsize=1)
+def get_user_repository() -> UserRepository:
+    return SQLiteUserRepository()
+
+
+@lru_cache(maxsize=1)
+def get_session_store() -> SessionStore:
+    ttl_days = int(os.getenv("SESSION_TTL_DAYS", "7"))
+    return RedisSessionStore(get_redis_client(), ttl_seconds=ttl_days * 86400)
+
+
+@lru_cache(maxsize=1)
+def get_oauth_provider() -> OAuthProvider:
+    return GitHubOAuthProvider(
+        client_id=os.getenv("GITHUB_CLIENT_ID", ""),
+        client_secret=os.getenv("GITHUB_CLIENT_SECRET", ""),
+        redirect_uri=os.getenv(
+            "GITHUB_OAUTH_REDIRECT_URI",
+            "http://localhost:4321/auth/github/callback",
+        ),
+    )
+
+
+def get_sign_in_use_case() -> SignInWithOAuthUseCase:
+    return SignInWithOAuthUseCase(
+        provider=get_oauth_provider(),
+        users=get_user_repository(),
+        sessions=get_session_store(),
     )
