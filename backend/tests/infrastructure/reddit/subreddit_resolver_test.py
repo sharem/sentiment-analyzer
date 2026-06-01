@@ -19,11 +19,12 @@ class TestHttpSubredditResolver:
         with patch("backend.infrastructure.reddit.subreddit_resolver.http_requests.get", return_value=response):
             assert resolver.resolve("scream") == "Scream"
 
-    def test_raises_for_private_subreddit(self, resolver):
+    def test_falls_back_to_input_on_403(self, resolver):
+        # Reddit returns 403 for any unauthenticated request to about.json now,
+        # so we can no longer use it to detect missing subreddits.
         response = MagicMock(status_code=403)
         with patch("backend.infrastructure.reddit.subreddit_resolver.http_requests.get", return_value=response):
-            with pytest.raises(SubredditNotFoundError):
-                resolver.resolve("privatesubreddit")
+            assert resolver.resolve("anything") == "anything"
 
     def test_raises_for_nonexistent_subreddit(self, resolver):
         response = MagicMock(status_code=404)
